@@ -1,0 +1,24 @@
+schema spot {
+    document spot {
+        field spot_id type string {
+            indexing: summary | attribute
+            attribute: fast-search
+            match: exact
+        }
+
+        field name type string {
+            indexing: summary | index
+            index: enable-bm25
+        }
+
+        field korea_name type string {
+            indexing: summary | index
+            index: enable-bm25
+        }
+
+        # lat,lonのgeo searchで必要
+        field spot_geo_location type position {
+            indexing: summary | attribute
+        }
+    }
+}

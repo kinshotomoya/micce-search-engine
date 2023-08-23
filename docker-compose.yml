@@ -1,0 +1,11 @@
+version: "3.9"
+
+# シングルノードで動かす
+services:
+  vespa-node:
+    image: vespaengine/vespa:8.215.17
+    container_name: vespa-node
+    hostname: vespa-node
+    ports:
+      - "8080:8080"
+      - "19071:19071"
