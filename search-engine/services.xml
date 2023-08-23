@@ -3,7 +3,7 @@
 
 <!--    クラスター構成ではないので、adminクラスタ（config serverなど）は構築不要-->
 <!--    参考：https://github.com/vespa-engine/sample-apps/blob/master/news/app-1-getting-started/services.xml-->
-    <container id='micce' version='1.0'>
+    <container id='micce-container' version='1.0'>
         <search/>
         <document-api/>
         <document-processing/>
@@ -13,11 +13,11 @@
         </nodes>
     </container>
 
-    <content id='micce' version='1.0'>
+    <content id='micce-content' version='1.0'>
         <redundancy>2</redundancy>
         <documents>
             <document type='spot' mode="index"/>
-            <document-processing cluster="micce"/>
+            <document-processing cluster="micce-container"/>
         </documents>
         <nodes>
             <node hostalias="node0" distribution-key="0" />
