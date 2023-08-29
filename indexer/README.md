@@ -12,4 +12,14 @@ search-engineにfirestoreのspotコレクションを全件upsertするシステ
 
 
 ## 技術スタック
-開発言語：Go
+Java: 17
+maven: 3.9.4
+
+
+
+## ローカル開発
+
+```shell
+$ mvn package
+$ java -jar target/micce-indexer-0.1.0.jar
+```
