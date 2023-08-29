@@ -20,6 +20,7 @@
                 <transformer>
                   <mainClass>micce.Indexer</mainClass>
                 </transformer>
+                <transformer />
               </transformers>
               <filters>
                 <filter>
