@@ -18,7 +18,7 @@
             <configuration>
               <transformers>
                 <transformer>
-                  <mainClass>micce.Indexer</mainClass>
+                  <mainClass>micce.OneShotIndexer</mainClass>
                 </transformer>
                 <transformer />
               </transformers>
