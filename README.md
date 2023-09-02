@@ -48,4 +48,4 @@ vespa deploy --wait 300 ./
 
 システムアーキテクチャ
 
-![アーキテクチャ](./reader.png)
+![アーキテクチャ](reader.png)
