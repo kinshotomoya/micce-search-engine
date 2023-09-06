@@ -13,7 +13,7 @@
 ### 仕様
 
 前段APIからのリクエストは
-- id, name,koreaName,lat,lon,limit,offset
+- id,name,koreaName,category,hasInstagramImages,lat,lon,limit,offset
 - nameとkoreaNameとlat,lonで検索をかける
 
 シノニム辞書は
