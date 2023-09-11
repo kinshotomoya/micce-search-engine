@@ -54,6 +54,8 @@ func main() {
 // https://cloud.google.com/pubsub/docs/pull?hl=ja#go
 // https://cloud.google.com/pubsub/docs/pull?hl=ja#java_3
 
+// NOTE: ↓streaming apiを使えば、subscriber側でポーリングせずにstreamでmessageを取得できる
+// https://christina04.hatenablog.com/entry/cloud-pubsub
 func publishToPubSub(ctx context.Context, gcpClient *gcp.PubSubClient, data firestore.Document) {
 	var buf bytes.Buffer
 	err := json.NewEncoder(&buf).Encode(data)
