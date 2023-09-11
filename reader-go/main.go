@@ -10,6 +10,7 @@ import (
 	"reader/firestore"
 	"reader/gcp"
 	time2 "reader/time"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -32,15 +33,20 @@ func main() {
 
 	timeConf := time2.NewTime()
 
+	// TODO: 1時間ごとに変更
 	ticker := time.NewTicker(30 * time.Second)
 	tickerDoneChanel := make(chan bool)
 
 	// 別スレッドでticker実行
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	go func() {
 		for {
 			select {
 			case <-tickerDoneChanel:
 				log.Println("ticker stop")
+				wg.Done()
 				break
 			case <-ticker.C:
 				log.Println("running...")
@@ -57,6 +63,7 @@ func main() {
 
 	tickerDoneChanel <- true
 
+	wg.Wait()
 	log.Println("program exit")
 
 }
