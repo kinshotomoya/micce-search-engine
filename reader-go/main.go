@@ -5,16 +5,18 @@ import (
 	"cloud.google.com/go/pubsub"
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
+	"os/signal"
 	"reader/firestore"
 	"reader/gcp"
 	time2 "reader/time"
+	"syscall"
 	"time"
 )
 
 func main() {
 	ctx := context.Background()
+
 	fireStoreClient, err := firestore.NewClient(ctx)
 	defer fireStoreClient.Close()
 	if err != nil {
@@ -22,12 +24,46 @@ func main() {
 	}
 
 	gcpClient, err := gcp.NewPubSubClient(ctx)
+	defer gcpClient.Client.Close()
+
 	if err != nil {
 		log.Printf("Failed to create gcp client: %v", err)
 	}
 
 	timeConf := time2.NewTime()
-	// TODO: ↓デバッグのために一年前のtimeを取得しているので1時間前に変更
+
+	ticker := time.NewTicker(30 * time.Second)
+	tickerDoneChanel := make(chan bool)
+
+	// 別スレッドでticker実行
+	go func() {
+		for {
+			select {
+			case <-tickerDoneChanel:
+				log.Println("ticker stop")
+				break
+			case <-ticker.C:
+				log.Println("running...")
+				run(ctx, fireStoreClient, gcpClient, timeConf)
+			}
+		}
+
+	}()
+
+	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	defer cancel()
+
+	<-ctx.Done()
+
+	tickerDoneChanel <- true
+
+	log.Println("program exit")
+
+}
+
+func run(ctx context.Context, fireStoreClient *firestore.FireStoreClient, gcpClient *gcp.PubSubClient, timeConf *time2.Time) {
+
+	//// TODO: ↓デバッグのために一年前のtimeを取得しているので1時間前に変更
 	beforeOneHour := timeConf.BeforeOneYear()
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -37,13 +73,12 @@ func main() {
 		snapShot, err := documentIter.Next()
 		if err != nil {
 			// もうないiterator中身がない場合ループを抜ける
-			fmt.Println("もうiteratorにないのでloop抜ける")
+			log.Println("もうiteratorにないのでloop抜ける")
 			break
 		}
 		doc := firestore.CreateDocument(snapShot)
 		publishToPubSub(ctx, gcpClient, doc)
 	}
-
 }
 
 // NOTE: ↓pubsub clientを使ってpublishする
