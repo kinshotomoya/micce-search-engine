@@ -22,7 +22,7 @@ func (v VespaClient) Upsert(document Document) {
 	body, err := createBody(document)
 	fmt.Println(body)
 	if err != nil {
-		log.Print("fatal create request body")
+		log.Printf("fatal create request body: %s", err.Error())
 		return
 	}
 	url := fmt.Sprintf("%s/document/v1/default/spot/docid/%s?create=true", v.Config.Url, document.Id)
@@ -31,7 +31,7 @@ func (v VespaClient) Upsert(document Document) {
 
 	res, err := v.Client.Do(req)
 	if err != nil {
-		log.Print("fatal put document to vespa")
+		log.Printf("fatal put document to vespa: %s", err.Error())
 		return
 	}
 	defer res.Body.Close()
