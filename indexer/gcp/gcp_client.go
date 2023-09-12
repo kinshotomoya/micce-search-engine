@@ -4,6 +4,8 @@ import (
 	"cloud.google.com/go/pubsub"
 	"context"
 	"fmt"
+	"indexer/vespa"
+	"log"
 )
 
 type PubSubClient struct {
@@ -24,10 +26,12 @@ func NewPubSubClient(ctx context.Context) (*PubSubClient, error) {
 	}, nil
 }
 
-func (p *PubSubClient) Subscribe(ctx context.Context) error {
+func (p *PubSubClient) Subscribe(ctx context.Context, vespaClient *vespa.VespaClient) error {
 	sub := p.Client.Subscription(subscriptionId)
 	err := sub.Receive(ctx, func(ctx context.Context, message *pubsub.Message) {
-		fmt.Println(message.Data)
+		document := vespa.DecodeDocument(message.Data)
+		log.Print(document)
+		vespaClient.Upsert(document)
 		message.Ack()
 	})
 
