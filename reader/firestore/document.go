@@ -3,11 +3,13 @@ package firestore
 import "cloud.google.com/go/firestore"
 
 type Document struct {
-	Id        *string  `json:"id"`
-	Name      *string  `json:"name"`
-	KoreaName *string  `json:"korea_name"`
-	Latitude  *float64 `json:"latitude"`
-	Longitude *float64 `json:"longitude"`
+	Id                 *string  `json:"id"`
+	Name               *string  `json:"name"`
+	KoreaName          *string  `json:"korea_name"`
+	Latitude           *float64 `json:"latitude"`
+	Longitude          *float64 `json:"longitude"`
+	Category           *string  `json:"category"`
+	HasInstagramImages bool     `json:"has_instagram_images"`
 }
 
 func CreateDocument(snapShot *firestore.DocumentSnapshot) Document {
@@ -51,11 +53,29 @@ func CreateDocument(snapShot *firestore.DocumentSnapshot) Document {
 		longitude = &tmp
 	}
 
+	var category *string
+	if snapShot.Data()["type"] == nil {
+		category = nil
+	} else {
+		tmp := snapShot.Data()["type"].(string)
+		category = &tmp
+	}
+
+	var hasInstagramImages bool
+	if snapShot.Data()["hasInstagramImages"] == nil {
+		hasInstagramImages = false
+	} else {
+		tmp := snapShot.Data()["hasInstagramImages"].(bool)
+		hasInstagramImages = tmp
+	}
+
 	return Document{
-		Id:        id,
-		Name:      name,
-		KoreaName: koreaName,
-		Latitude:  latitude,
-		Longitude: longitude,
+		Id:                 id,
+		Name:               name,
+		KoreaName:          koreaName,
+		Latitude:           latitude,
+		Longitude:          longitude,
+		Category:           category,
+		HasInstagramImages: hasInstagramImages,
 	}
 }
