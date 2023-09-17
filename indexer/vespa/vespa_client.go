@@ -14,6 +14,10 @@ type VespaClient struct {
 	Config *VespaConfig
 }
 
+func (v VespaClient) Close() {
+	v.Client.CloseIdleConnections()
+}
+
 /*
 参考：
 https://docs.vespa.ai/en/document-v1-api-guide.html#upserts
@@ -60,21 +64,15 @@ func createBody(document Document) (io.Reader, error) {
 		}
 	}
 
-	var lat *Assign
-	if document.Latitude == nil {
-		lat = nil
+	var geoLocation *Assign
+	if document.Latitude == nil || document.Longitude == nil {
+		geoLocation = nil
 	} else {
-		lat = &Assign{
-			Assign: document.Latitude,
-		}
-	}
-
-	var lon *Assign
-	if document.Longitude == nil {
-		lon = nil
-	} else {
-		lon = &Assign{
-			Assign: document.Longitude,
+		geoLocation = &Assign{
+			Assign: map[string]float64{
+				"lat": *document.Latitude,
+				"lng": *document.Longitude,
+			},
 		}
 	}
 
@@ -92,11 +90,10 @@ func createBody(document Document) (io.Reader, error) {
 			Id: Assign{
 				Assign: document.Id,
 			},
-			Name:      name,
-			KoreaName: koreaName,
-			Latitude:  lat,
-			Longitude: lon,
-			Category:  category,
+			Name:            name,
+			KoreaName:       koreaName,
+			SpotGeoLocation: geoLocation,
+			Category:        category,
 			HasInstagramImages: Assign{
 				Assign: document.HasInstagramImages,
 			},

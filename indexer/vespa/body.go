@@ -5,11 +5,10 @@ type Body struct {
 }
 
 type Fields struct {
-	Id                 Assign  `json:"id"`
+	Id                 Assign  `json:"spot_id"`
 	Name               *Assign `json:"name,omitempty"`
 	KoreaName          *Assign `json:"korea_name,omitempty"`
-	Latitude           *Assign `json:"latitude,omitempty"`
-	Longitude          *Assign `json:"longitude,omitempty"`
+	SpotGeoLocation    *Assign `json:"spot_geo_location"`
 	Category           *Assign `json:"category,omitempty"`
 	HasInstagramImages Assign  `json:"has_instagram_images"`
 }

@@ -20,5 +20,16 @@ schema spot {
         field spot_geo_location type position {
             indexing: summary | attribute
         }
+
+        field category type string {
+            indexing: summary | attribute
+            attribute: fast-search
+            match: exact
+        }
+
+        field has_instagram_images type bool {
+            indexing: summary | attribute
+        }
+
     }
 }

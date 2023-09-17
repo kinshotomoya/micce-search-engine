@@ -35,7 +35,7 @@ func main() {
 		Timeout: 1000,
 	}
 
-	// 検証・本番の場合は対象のvespa URLを設定する
+	// TODO: 検証・本番の場合は対象のvespa URLを設定する
 	if *env != "dev" {
 		config.Url = ""
 	}
@@ -79,6 +79,7 @@ func main() {
 	// 終了処理
 	cancelPubSub()
 	err = pubsubClient.Close()
+	vespaClient.Close()
 	if err != nil {
 		log.Fatalf("fatal close pubsub pubsubClient: %s", err.Error())
 	}
