@@ -32,6 +32,7 @@ func main() {
 		}
 	}
 
+	// TODO: azureのcontainerで動かす場合は、環境変数にEVT_HUB_CONNECTION_NAMEを登録する
 	azureEventHubConnectionName := os.Getenv("EVT_HUB_CONNECTION_NAME")
 
 	fmt.Println(azureEventHubConnectionName)

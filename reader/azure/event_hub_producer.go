@@ -6,6 +6,11 @@ import (
 	"log"
 )
 
+// 参考：
+// https://learn.microsoft.com/ja-jp/azure/event-hubs/event-hubs-go-get-started-send
+
+// azure console画面からメッセージを確認する方法
+// https://learn.microsoft.com/ja-jp/azure/event-hubs/event-hubs-get-connection-string
 type EventHubProducer struct {
 	producer *azeventhubs.ProducerClient
 	option   *azeventhubs.EventDataBatchOptions
@@ -26,7 +31,7 @@ func NewEventHubProducer(azureEventHubConnectionName string) (*EventHubProducer,
 
 }
 
-func (e EventHubProducer) CreateEventBatch(ctx context.Context, eventData *azeventhubs.EventData) (*azeventhubs.EventDataBatch, error) {
+func (e *EventHubProducer) CreateEventBatch(ctx context.Context, eventData *azeventhubs.EventData) (*azeventhubs.EventDataBatch, error) {
 	batchData, err := e.producer.NewEventDataBatch(ctx, e.option)
 	if err != nil {
 		return nil, err
