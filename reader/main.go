@@ -2,13 +2,17 @@ package main
 
 import (
 	"bytes"
-	"cloud.google.com/go/pubsub"
 	"context"
 	"encoding/json"
+	"flag"
+	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs"
+	"github.com/joho/godotenv"
 	"log"
+	"os"
 	"os/signal"
+	"reader/azure"
 	"reader/firestore"
-	"reader/gcp"
 	time2 "reader/time"
 	"sync"
 	"syscall"
@@ -18,14 +22,31 @@ import (
 func main() {
 	ctx := context.Background()
 
+	env := flag.String("env", "", "hoge")
+	flag.Parse()
+
+	if *env == "dev" {
+		envErr := godotenv.Load()
+		if envErr != nil {
+			log.Fatal("error loading .env file")
+		}
+	}
+
+	azureEventHubConnectionName := os.Getenv("EVT_HUB_CONNECTION_NAME")
+
+	fmt.Println(azureEventHubConnectionName)
+
 	fireStoreClient, err := firestore.NewClient(ctx)
 	defer fireStoreClient.Close()
 	if err != nil {
 		log.Printf("Failed to create firestore client: %v", err)
 	}
 
-	gcpClient, err := gcp.NewPubSubClient(ctx)
-	defer gcpClient.Client.Close()
+	azureEventHubProducer, err := azure.NewEventHubProducer(azureEventHubConnectionName)
+	if err != nil {
+		log.Fatalf("fatal create event hub producer: %s", err.Error())
+	}
+	defer azureEventHubProducer.Close(ctx)
 
 	if err != nil {
 		log.Printf("Failed to create gcp client: %v", err)
@@ -50,7 +71,7 @@ func main() {
 				break
 			case <-ticker.C:
 				log.Println("running...")
-				run(ctx, fireStoreClient, gcpClient, timeConf)
+				run(ctx, fireStoreClient, azureEventHubProducer, timeConf)
 			}
 		}
 
@@ -68,7 +89,7 @@ func main() {
 
 }
 
-func run(ctx context.Context, fireStoreClient *firestore.FireStoreClient, gcpClient *gcp.PubSubClient, timeConf *time2.Time) {
+func run(ctx context.Context, fireStoreClient *firestore.FireStoreClient, azureEventHubProducer *azure.EventHubProducer, timeConf *time2.Time) {
 
 	//// TODO: ↓デバッグのために一年前のtimeを取得しているので1時間前に変更
 	beforeOneHour := timeConf.BeforeOneYear()
@@ -83,26 +104,31 @@ func run(ctx context.Context, fireStoreClient *firestore.FireStoreClient, gcpCli
 			log.Println("もうiteratorにないのでloop抜ける")
 			break
 		}
+		log.Println(snapShot.Data())
 		doc := firestore.CreateDocument(snapShot)
-		publishToPubSub(ctx, gcpClient, doc)
+		sendToEventHub(ctx, azureEventHubProducer, doc)
 	}
 }
 
-// NOTE: ↓pubsub clientを使ってpublishする
-// https://pkg.go.dev/cloud.google.com/go/pubsub#section-readme
-
-// ↓pubsubの解説
-// https://laboratory.kiyono-co.jp/69/gcp/
-// https://cloud.google.com/pubsub/docs/pull?hl=ja#go
-// https://cloud.google.com/pubsub/docs/pull?hl=ja#java_3
-func publishToPubSub(ctx context.Context, gcpClient *gcp.PubSubClient, data firestore.Document) {
+func sendToEventHub(ctx context.Context, azureEventHubProducer *azure.EventHubProducer, data firestore.Document) {
 	var buf bytes.Buffer
 	err := json.NewEncoder(&buf).Encode(data)
 	if err != nil {
 		log.Fatalf("fatal encode firestore data to json: %s", err.Error())
 	}
-	message := &pubsub.Message{
-		Data: buf.Bytes(),
+
+	eventData := &azeventhubs.EventData{
+		Body: buf.Bytes(),
 	}
-	gcpClient.Publish(ctx, message)
+	timeoutCtx, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
+	defer cancel()
+	eventDataBatch, err := azureEventHubProducer.CreateEventBatch(timeoutCtx, eventData)
+	if err != nil {
+		log.Printf("fatal create eventhub data: %s", err.Error())
+	}
+	err = azureEventHubProducer.Send(timeoutCtx, eventDataBatch)
+	if err != nil {
+		log.Printf("fatal send eventhub data: %s", err.Error())
+	}
+
 }

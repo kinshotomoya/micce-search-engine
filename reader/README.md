@@ -1,3 +1,5 @@
 
-
-※ GPCのmicce-travel-appプロジェクトを利用する
+ローカル動作確認
+```shell
+go run main.go -env dev
+```
