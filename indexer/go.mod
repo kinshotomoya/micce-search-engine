@@ -2,13 +2,21 @@ module indexer
 
 go 1.20
 
-require cloud.google.com/go/pubsub v1.33.0
+require (
+	cloud.google.com/go/pubsub v1.33.0
+	github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs v1.0.1
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.0.0
+	github.com/joho/godotenv v1.5.1
+)
 
 require (
 	cloud.google.com/go v0.110.2 // indirect
 	cloud.google.com/go/compute v1.19.3 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/iam v1.1.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.4.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.2.0 // indirect
+	github.com/Azure/go-amqp v1.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
