@@ -20,7 +20,11 @@ const eventHubName = "micce-search-engine"
 
 func NewEventHubProducer(azureEventHubConnectionName string) (*EventHubProducer, error) {
 	producerClient, err := azeventhubs.NewProducerClientFromConnectionString(azureEventHubConnectionName, eventHubName, nil)
-	option := azeventhubs.EventDataBatchOptions{}
+	// NOTE:同じpartitionにメッセージを保存したいので固定
+	partitionId := "0"
+	option := azeventhubs.EventDataBatchOptions{
+		PartitionID: &partitionId,
+	}
 	if err != nil {
 		return nil, err
 	}
