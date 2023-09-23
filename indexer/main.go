@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"indexer/azure"
-	"indexer/gcp"
 	"indexer/vespa"
 	"log"
 	"net/http"
@@ -25,7 +24,7 @@ func main() {
 	// https://christina04.hatenablog.com/entry/cloud-pubsub
 
 	ctx := context.Background()
-	pubsubClient, err := gcp.NewPubSubClient(ctx)
+	//pubsubClient, err := gcp.NewPubSubClient(ctx)
 
 	env := flag.String("env", "", "hoge")
 	flag.Parse()
@@ -47,11 +46,14 @@ func main() {
 	defer eventHubConsumer.Close(ctx)
 
 	if err != nil {
-		log.Fatalf("fatal create pubsub pubsubClient: %s", err.Error())
+		log.Fatalf("fatal create azure eventHubConsumer: %s", err.Error())
 	}
 
-	// TODO: 続きprocessorを作る箇所から
-	//  https://github.com/Azure/azure-sdk-for-go/blob/main/sdk/messaging/azeventhubs/example_consuming_with_checkpoints_test.go#L54C1-L54C1
+	processor, err := azure.NewProcessor(eventHubConsumer, checkpointStore)
+
+	if err != nil {
+		log.Fatalf("fatal create azure eventhub processor: %s", err.Error())
+	}
 
 	config := &vespa.VespaConfig{
 		Url:     "http://localhost:8080",
@@ -87,25 +89,32 @@ func main() {
 
 	log.Println("program is running")
 
-	// cancel付きのcontextを生成
-	// 終了シグナルを受け取った時点でcancelPubSub()を実行し、pubsubClient.Subscribe(canCtx)内のcanCtxにdoneチャネルを閉じる
-	// Subscribe内のsub.Receive(ctx)内で、Doneチャネルが閉じられるとpubsub pullをやめる実装がされている
-	canCtx, cancelPubSub := context.WithCancel(ctx)
-	err = pubsubClient.Subscribe(canCtx, vespaClient)
+	processCtx, processorCancel := context.WithCancel(ctx)
+	ch := make(chan string)
 
-	if err != nil {
-		log.Fatalf("fatal subscribe pubsub: %s", err.Error())
+	go azure.DispatchPartitionClients(processor, processCtx, ch)
+
+	// processorを起動する
+	log.Println("start processor")
+	if err := processor.Run(processCtx); err != nil {
+		log.Fatalf("fatal run azure eventhub processor: %s", err.Error())
 	}
 
 	<-ctx.Done()
+	log.Println("receive kill signal")
 
 	// 終了処理
-	cancelPubSub()
-	err = pubsubClient.Close()
-	vespaClient.Close()
-	if err != nil {
-		log.Fatalf("fatal close pubsub pubsubClient: %s", err.Error())
+	// partitionClientが動いている孫goroutineに終了シグナルを送る
+	processorCancel()
+
+	select {
+	case msg := <-ch:
+		log.Println(msg)
+	case <-processCtx.Done():
+		log.Println("no partition client closed cuz any partition client not running")
 	}
+
+	vespaClient.Close()
 
 	log.Println("program exit")
 

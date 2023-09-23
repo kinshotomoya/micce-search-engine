@@ -15,6 +15,7 @@ type VespaClient struct {
 }
 
 func (v VespaClient) Close() {
+	log.Println("vespa client closed")
 	v.Client.CloseIdleConnections()
 }
 
