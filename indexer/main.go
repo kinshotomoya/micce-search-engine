@@ -24,7 +24,6 @@ func main() {
 	// https://christina04.hatenablog.com/entry/cloud-pubsub
 
 	ctx := context.Background()
-	//pubsubClient, err := gcp.NewPubSubClient(ctx)
 
 	env := flag.String("env", "", "hoge")
 	flag.Parse()
@@ -89,29 +88,22 @@ func main() {
 
 	log.Println("program is running")
 
-	processCtx, processorCancel := context.WithCancel(ctx)
 	ch := make(chan string)
 
-	go azure.DispatchPartitionClients(processor, processCtx, ch)
+	go azure.DispatchPartitionClients(processor, ctx, ch, vespaClient)
 
 	// processorを起動する
 	log.Println("start processor")
-	if err := processor.Run(processCtx); err != nil {
+	if err := processor.Run(ctx); err != nil {
 		log.Fatalf("fatal run azure eventhub processor: %s", err.Error())
 	}
 
-	<-ctx.Done()
 	log.Println("receive kill signal")
 
-	// 終了処理
-	// partitionClientが動いている孫goroutineに終了シグナルを送る
-	processorCancel()
-
+	//
 	select {
 	case msg := <-ch:
 		log.Println(msg)
-	case <-processCtx.Done():
-		log.Println("no partition client closed cuz any partition client not running")
 	}
 
 	vespaClient.Close()

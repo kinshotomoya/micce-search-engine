@@ -14,7 +14,7 @@ type VespaClient struct {
 	Config *VespaConfig
 }
 
-func (v VespaClient) Close() {
+func (v *VespaClient) Close() {
 	log.Println("vespa client closed")
 	v.Client.CloseIdleConnections()
 }
@@ -23,7 +23,8 @@ func (v VespaClient) Close() {
 参考：
 https://docs.vespa.ai/en/document-v1-api-guide.html#upserts
 */
-func (v VespaClient) Upsert(document Document) {
+
+func (v *VespaClient) Upsert(document Document) {
 	body, err := createBody(document)
 	fmt.Println(body)
 	if err != nil {

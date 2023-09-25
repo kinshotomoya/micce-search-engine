@@ -1,12 +1,15 @@
 package azure
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs"
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs/checkpoints"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
+	"indexer/vespa"
 	"log"
 	"time"
 )
@@ -52,7 +55,7 @@ func NewProcessor(eventHubConsumer *azeventhubs.ConsumerClient, checkpointStore 
 
 }
 
-func DispatchPartitionClients(processor *azeventhubs.Processor, ctx context.Context, ch chan<- string) {
+func DispatchPartitionClients(processor *azeventhubs.Processor, ctx context.Context, ch chan<- string, vespaClient *vespa.VespaClient) {
 	for {
 		// NOTE: partitionから要求があるたびに、そのpartitionに対するClientが作成される
 		processorPartitionClient := processor.NextPartitionClient(ctx)
@@ -64,14 +67,14 @@ func DispatchPartitionClients(processor *azeventhubs.Processor, ctx context.Cont
 
 		// NOTE: clientごとに別のgoroutineでreceive処理を行う
 		go func() {
-			err := processEventsForPartition(processorPartitionClient, ctx, ch)
+			err := processEventsForPartition(processorPartitionClient, ctx, ch, vespaClient)
 			if err != nil {
 				log.Printf("error process eventhub partitionId %s: %s", processorPartitionClient.PartitionID(), err.Error())
-				// この時にも終了シグナルをちゃんと受け取れるように
+				// partitionClientが一台も起動していない時にも終了シグナルをちゃんと受け取れるように
+				// client shutdownはprocessEventsForPartition内で行っているので不要
 				select {
 				case <-ctx.Done():
-					shutdownPartitionResource(processorPartitionClient, ctx)
-					ch <- fmt.Sprintf("running partitionClient goroutine finished between %s", err.Error())
+					ch <- fmt.Sprintf("running partitionClient goroutine finished cuz %s", err.Error())
 					break
 				}
 				return
@@ -80,7 +83,7 @@ func DispatchPartitionClients(processor *azeventhubs.Processor, ctx context.Cont
 	}
 }
 
-func processEventsForPartition(partitionClient *azeventhubs.ProcessorPartitionClient, ctx context.Context, ch chan<- string) error {
+func processEventsForPartition(partitionClient *azeventhubs.ProcessorPartitionClient, ctx context.Context, ch chan<- string, vespaClient *vespa.VespaClient) error {
 
 	// closure
 	// 実際に実行されるまでshutdownPartitionResourceの引数は評価されない
@@ -92,11 +95,11 @@ parentLoop:
 	for {
 		select {
 		case <-ctx.Done():
-			shutdownPartitionResource(partitionClient, ctx)
 			ch <- "running partitionClient goroutine finished"
 			break parentLoop
 		default:
-			receiveCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+			// TODO: 5秒は要調整
+			receiveCtx, cancel := context.WithTimeout(ctx, 1*time.Minute)
 			// NOTE: 100件取得完了する、5秒経過するまで待ち受ける
 			// 5秒経過した場合errにErrorが入る
 			events, err := partitionClient.ReceiveEvents(receiveCtx, 100, nil)
@@ -121,8 +124,16 @@ parentLoop:
 			log.Printf("receive %d events", len(events))
 
 			for _, event := range events {
-				// TODO: 実際に受け取ったメッセージをvespaに投げる
-				log.Printf("%v", event.Body)
+				var buf bytes.Buffer
+				buf.Write(event.Body)
+				var document vespa.Document
+				err := json.NewDecoder(&buf).Decode(&document)
+				if err != nil {
+					log.Printf("fatal decode event hub message: %s", err.Error())
+					continue
+				}
+				vespaClient.Upsert(document)
+
 			}
 
 			// NOTE: checkpointを更新する

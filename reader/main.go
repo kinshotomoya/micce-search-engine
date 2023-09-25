@@ -105,7 +105,6 @@ func run(ctx context.Context, fireStoreClient *firestore.FireStoreClient, azureE
 			log.Println("もうiteratorにないのでloop抜ける")
 			break
 		}
-		log.Println(snapShot.Data())
 		doc := firestore.CreateDocument(snapShot)
 		sendToEventHub(ctx, azureEventHubProducer, doc)
 	}
