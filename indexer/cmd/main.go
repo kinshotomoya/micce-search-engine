@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -88,9 +89,13 @@ func main() {
 
 	log.Println("program is running")
 
-	ch := make(chan string)
-
-	go azure.DispatchPartitionClients(processor, ctx, ch, vespaClient)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		azure.DispatchPartitionClients(processor, ctx, vespaClient)
+		log.Println("親goroutine終了")
+	}()
 
 	// processorを起動する
 	log.Println("start processor")
@@ -98,13 +103,9 @@ func main() {
 		log.Fatalf("fatal run azure eventhub processor: %s", err.Error())
 	}
 
-	log.Println("receive kill signal")
+	wg.Wait()
 
-	//
-	select {
-	case msg := <-ch:
-		log.Println(msg)
-	}
+	log.Println("receive kill signal")
 
 	vespaClient.Close()
 
