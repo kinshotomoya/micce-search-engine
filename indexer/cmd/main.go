@@ -5,8 +5,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/joho/godotenv"
-	"indexer/azure"
-	"indexer/vespa"
+	"indexer/internal/azure"
+	vespa2 "indexer/internal/vespa"
 	"log"
 	"net/http"
 	"os"
@@ -54,7 +54,7 @@ func main() {
 		log.Fatalf("fatal create azure eventhub processor: %s", err.Error())
 	}
 
-	config := &vespa.VespaConfig{
+	config := &vespa2.VespaConfig{
 		Url:     "http://localhost:8080",
 		Timeout: 1000,
 	}
@@ -78,7 +78,7 @@ func main() {
 		Timeout: 90 * time.Second,
 	}
 
-	vespaClient := &vespa.VespaClient{
+	vespaClient := &vespa2.VespaClient{
 		Client: httpClient,
 		Config: config,
 	}

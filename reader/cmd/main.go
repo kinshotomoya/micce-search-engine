@@ -11,9 +11,9 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"reader/azure"
-	"reader/firestore"
-	time2 "reader/time"
+	"reader/internal/azure"
+	firestore2 "reader/internal/firestore"
+	time2 "reader/internal/time"
 	"sync"
 	"syscall"
 	"time"
@@ -37,7 +37,7 @@ func main() {
 
 	fmt.Println(azureEventHubConnectionName)
 
-	fireStoreClient, err := firestore.NewClient(ctx)
+	fireStoreClient, err := firestore2.NewClient(ctx)
 	defer fireStoreClient.Close()
 	if err != nil {
 		log.Printf("Failed to create firestore client: %v", err)
@@ -90,7 +90,7 @@ func main() {
 
 }
 
-func run(ctx context.Context, fireStoreClient *firestore.FireStoreClient, azureEventHubProducer *azure.EventHubProducer, timeConf *time2.Time) {
+func run(ctx context.Context, fireStoreClient *firestore2.FireStoreClient, azureEventHubProducer *azure.EventHubProducer, timeConf *time2.Time) {
 
 	//// TODO: ↓デバッグのために一年前のtimeを取得しているので1時間前に変更
 	beforeOneHour := timeConf.BeforeOneYear()
@@ -105,12 +105,12 @@ func run(ctx context.Context, fireStoreClient *firestore.FireStoreClient, azureE
 			log.Println("もうiteratorにないのでloop抜ける")
 			break
 		}
-		doc := firestore.CreateDocument(snapShot)
+		doc := firestore2.CreateDocument(snapShot)
 		sendToEventHub(ctx, azureEventHubProducer, doc)
 	}
 }
 
-func sendToEventHub(ctx context.Context, azureEventHubProducer *azure.EventHubProducer, data firestore.Document) {
+func sendToEventHub(ctx context.Context, azureEventHubProducer *azure.EventHubProducer, data firestore2.Document) {
 	var buf bytes.Buffer
 	err := json.NewEncoder(&buf).Encode(data)
 	if err != nil {

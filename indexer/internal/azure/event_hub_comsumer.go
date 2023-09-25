@@ -9,7 +9,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs"
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs/checkpoints"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/container"
-	"indexer/vespa"
+	vespa2 "indexer/internal/vespa"
 	"log"
 	"time"
 )
@@ -55,7 +55,7 @@ func NewProcessor(eventHubConsumer *azeventhubs.ConsumerClient, checkpointStore 
 
 }
 
-func DispatchPartitionClients(processor *azeventhubs.Processor, ctx context.Context, ch chan<- string, vespaClient *vespa.VespaClient) {
+func DispatchPartitionClients(processor *azeventhubs.Processor, ctx context.Context, ch chan<- string, vespaClient *vespa2.VespaClient) {
 	for {
 		// NOTE: partitionから要求があるたびに、そのpartitionに対するClientが作成される
 		processorPartitionClient := processor.NextPartitionClient(ctx)
@@ -83,7 +83,7 @@ func DispatchPartitionClients(processor *azeventhubs.Processor, ctx context.Cont
 	}
 }
 
-func processEventsForPartition(partitionClient *azeventhubs.ProcessorPartitionClient, ctx context.Context, ch chan<- string, vespaClient *vespa.VespaClient) error {
+func processEventsForPartition(partitionClient *azeventhubs.ProcessorPartitionClient, ctx context.Context, ch chan<- string, vespaClient *vespa2.VespaClient) error {
 
 	// closure
 	// 実際に実行されるまでshutdownPartitionResourceの引数は評価されない
@@ -126,7 +126,7 @@ parentLoop:
 			for _, event := range events {
 				var buf bytes.Buffer
 				buf.Write(event.Body)
-				var document vespa.Document
+				var document vespa2.Document
 				err := json.NewDecoder(&buf).Decode(&document)
 				if err != nil {
 					log.Printf("fatal decode event hub message: %s", err.Error())

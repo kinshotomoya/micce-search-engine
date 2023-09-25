@@ -1,7 +1,7 @@
 
 
 ```shell
-$ go run main.go -env dev
+$ go run cmd/main.go -env dev
 ```
 
 ※ GPCのmicce-travel-appプロジェクトを利用する
