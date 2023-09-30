@@ -1,0 +1,76 @@
+openapi: 3.0.3
+info:
+  version: 1.0.0
+  title: search-api API定義書
+  description: 検索api
+servers:
+  - url: "http://localhost:8003"
+paths:
+  /api/v1/search:
+    post:
+      description: search spot
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              properties:
+                spotName:
+                  type: string
+                geo:
+                  items:
+                    type: object
+                    properties:
+                      latitude:
+                        type: float
+                      longitude:
+                        type: float
+                catgory:
+                  type: string
+                # TODO: 
+                # bookmark:
+                limit:
+                  type: integer
+                offset:
+                  type: integer
+      responses:
+        "200":
+          description: searched spot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_hits:
+                    type: integer
+                    example: 1
+                  last_page:
+                    type: boolean
+                  spot_ids:
+                    type: array
+                    items:
+                      type: string
+        "400":
+          description: bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    Error:
+      type: "object"
+      properties:
+        status_code:
+          type: "integer"
+          format: "int32"
+        message:
+          type: "string"
