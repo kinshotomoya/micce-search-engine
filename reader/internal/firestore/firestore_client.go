@@ -3,6 +3,7 @@ package firestore
 import (
 	"cloud.google.com/go/firestore"
 	"context"
+	"log"
 	"time"
 )
 
@@ -30,3 +31,19 @@ func (client *FireStoreClient) GetDocumentsByUpdateAt(ctx context.Context, now t
 	// TODO: limit外す
 	return client.Client.Collection("Spot").Where("updatedAt", ">=", now).Limit(30).Documents(ctx)
 }
+
+func (client *FireStoreClient) UpsertDocument(ctx context.Context, data any) error {
+	_, err := client.Client.Collection("SpotScheduledTime").Doc("micce-search-engine").Set(ctx, data)
+	if err != nil {
+		return err
+	}
+	log.Print("set scheduled time")
+	return nil
+}
+
+//func (client *FireStoreClient) GetDocumentOne(ctx context.Context) {
+//	doc, err := client.Client.Collection("SpotScheduledTime").Doc("micce-search-engine").Get(ctx)
+//	if err != nil {
+//		return
+//	}
+//}

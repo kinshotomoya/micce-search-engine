@@ -78,10 +78,16 @@ func main() {
 
 	}()
 
-	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	ctxNotify, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	defer cancel()
 
-	<-ctx.Done()
+	<-ctxNotify.Done()
+
+	err = setScheduledTime(ctx, fireStoreClient, timeConf)
+
+	if err != nil {
+		log.Printf("error upsert scheduled time: %s", err.Error())
+	}
 
 	tickerDoneChanel <- true
 
@@ -131,4 +137,15 @@ func sendToEventHub(ctx context.Context, azureEventHubProducer *azure.EventHubPr
 		log.Printf("fatal send eventhub data: %s", err.Error())
 	}
 
+}
+
+func setScheduledTime(ctx context.Context, fireStoreClient *firestore2.FireStoreClient, timeConf *time2.Time) error {
+	scheduledTime := timeConf.Now()
+	data := make(map[string]time.Time)
+	data["datetime"] = scheduledTime
+	err := fireStoreClient.UpsertDocument(ctx, data)
+	if err != nil {
+		return err
+	}
+	return nil
 }
