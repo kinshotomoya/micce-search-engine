@@ -59,6 +59,13 @@ func main() {
 	ticker := time.NewTicker(30 * time.Second)
 	tickerDoneChanel := make(chan bool)
 
+	// NOTE: firestoreに保存したSpotScheduledTimeコレクションから開始日を取得する
+	//  開始日から現在日時の間の更新データを全てqueueにつむ
+	//  indexer側でvespaにフィードする流量を調整する
+	doc, err := fireStoreClient.GetDocumentOne(ctx)
+	run(ctx, fireStoreClient, azureEventHubProducer, &doc.Datetime)
+	log.Println("finished scheduledTime upsert")
+
 	// 別スレッドでticker実行
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -72,7 +79,9 @@ func main() {
 				break
 			case <-ticker.C:
 				log.Println("running...")
-				run(ctx, fireStoreClient, azureEventHubProducer, timeConf)
+				//// TODO: ↓デバッグのために一年前のtimeを取得しているので1時間前に変更
+				beforeOneHour := timeConf.BeforeOneYear()
+				run(ctx, fireStoreClient, azureEventHubProducer, &beforeOneHour)
 			}
 		}
 
@@ -96,13 +105,11 @@ func main() {
 
 }
 
-func run(ctx context.Context, fireStoreClient *firestore2.FireStoreClient, azureEventHubProducer *azure.EventHubProducer, timeConf *time2.Time) {
+func run(ctx context.Context, fireStoreClient *firestore2.FireStoreClient, azureEventHubProducer *azure.EventHubProducer, startTime *time.Time) {
 
-	//// TODO: ↓デバッグのために一年前のtimeを取得しているので1時間前に変更
-	beforeOneHour := timeConf.BeforeOneYear()
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	documentIter := fireStoreClient.GetDocumentsByUpdateAt(ctx, beforeOneHour)
+	documentIter := fireStoreClient.GetDocumentsByUpdateAt(ctx, *startTime)
 
 	for {
 		snapShot, err := documentIter.Next()

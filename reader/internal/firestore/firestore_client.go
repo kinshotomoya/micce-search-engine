@@ -41,9 +41,15 @@ func (client *FireStoreClient) UpsertDocument(ctx context.Context, data any) err
 	return nil
 }
 
-//func (client *FireStoreClient) GetDocumentOne(ctx context.Context) {
-//	doc, err := client.Client.Collection("SpotScheduledTime").Doc("micce-search-engine").Get(ctx)
-//	if err != nil {
-//		return
-//	}
-//}
+func (client *FireStoreClient) GetDocumentOne(ctx context.Context) (*SpotScheduledTime, error) {
+	doc, err := client.Client.Collection("SpotScheduledTime").Doc("micce-search-engine").Get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var s SpotScheduledTime
+	err = doc.DataTo(&s)
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
+}
