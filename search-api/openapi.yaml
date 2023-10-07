@@ -33,6 +33,9 @@ paths:
                   nullable: true
                 # TODO: 
                 # bookmark:
+                has_instagram_image:
+                  type: boolean
+                  nullable: true
                 limit:
                   type: integer
                 offset:
