@@ -27,5 +27,15 @@ func (b *QueryBuilder) BuildQuery(condition *domain.SearchCondition) string {
 		},
 	}
 	whereQuery := andQuery.BuildQuery()
-	return fmt.Sprintf("select %s from %s where %s %d %d", b.fields, b.schema, whereQuery, condition.Limit, condition.Offset)
+	// page:1, limit: 10の場合
+	// limit 10, offset 0
+
+	// page: 2, limit: 10の場合
+	// limit 20, offset 10
+
+	// page: 3, limit: 10の場合
+	// limit 30, offset 20
+	limit := *condition.Limit * *condition.Page
+	offset := *condition.Limit**condition.Page - *condition.Limit
+	return fmt.Sprintf("select %s from %s where %s limit %d offset %d", b.fields, b.schema, whereQuery, limit, offset)
 }

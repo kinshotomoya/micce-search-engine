@@ -38,7 +38,7 @@ paths:
                   nullable: true
                 limit:
                   type: integer
-                offset:
+                page:
                   type: integer
       responses:
         "200":

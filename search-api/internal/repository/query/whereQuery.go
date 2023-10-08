@@ -2,6 +2,7 @@ package query
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -14,9 +15,12 @@ type AndQuery struct {
 }
 
 func (a AndQuery) BuildQuery() string {
-	queries := make([]string, len(a.whereQuery))
+	queries := make([]string, 0, len(a.whereQuery))
 	for index := range a.whereQuery {
-		queries[index] = a.whereQuery[index].BuildQuery()
+		if a.whereQuery[index] == nil || reflect.ValueOf(a.whereQuery[index]).IsNil() {
+			continue
+		}
+		queries = append(queries, a.whereQuery[index].BuildQuery())
 	}
 	return fmt.Sprintf("(%s)", strings.Join(queries, " and "))
 }
@@ -26,9 +30,12 @@ type OrQuery struct {
 }
 
 func (a OrQuery) BuildQuery() string {
-	queries := make([]string, len(a.whereQuery))
+	queries := make([]string, 0, len(a.whereQuery))
 	for index := range a.whereQuery {
-		queries[index] = a.whereQuery[index].BuildQuery()
+		if a.whereQuery[index] == nil || reflect.ValueOf(a.whereQuery[index]).IsNil() {
+			continue
+		}
+		queries = append(queries, a.whereQuery[index].BuildQuery())
 	}
 	return fmt.Sprintf("(%s)", strings.Join(queries, " or "))
 }
@@ -46,7 +53,7 @@ func NewMatchQuery(field string, keyword string) *MatchQuery {
 }
 
 func (m MatchQuery) BuildQuery() string {
-	return fmt.Sprintf("%s contains %s", m.field, m.keyword)
+	return fmt.Sprintf("%s contains \"%s\"", m.field, m.keyword)
 }
 
 type GeoQuery struct {
@@ -66,7 +73,7 @@ func NewGeoQuery(field string, lat float64, lon float64, distance string) *GeoQu
 }
 
 func (g GeoQuery) BuildQuery() string {
-	return fmt.Sprintf("geoLocation(%s, %f, %f, %s)", g.field, g.lat, g.lon, g.distance)
+	return fmt.Sprintf("geoLocation(%s, %f, %f, \"%s\")", g.field, g.lat, g.lon, g.distance)
 }
 
 type ComparisonOperator int

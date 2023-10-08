@@ -3,6 +3,7 @@ package model
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 )
@@ -22,20 +23,29 @@ func NewVespaClient(client *http.Client, vespaUrl string) *VespaClient {
 	}
 }
 
-func (v *VespaClient) Do(request *VespaRequest) {
+func (v *VespaClient) Do(request *VespaRequest) (*VespaResponse, error) {
 	var buf bytes.Buffer
 	err := json.NewEncoder(&buf).Encode(request)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	// TODO: ログレベル設定
 	slog.Info("yql: " + request.Yql)
 
-	req, _ := http.NewRequest("POST", v.vespaConfig.Url, &buf)
+	req, _ := http.NewRequest("POST", v.vespaConfig.Url+"/search/", &buf)
+	req.Header.Add("Content-Type", "application/json")
 	res, err := v.httpClient.Do(req)
 	if err != nil {
-		return
+		fmt.Println(err.Error())
+		return nil, err
 	}
-	// TODO: 続き、vespaからのレスポンス処理
+
+	defer res.Body.Close()
+	var vespaResponse VespaResponse
+	err = json.NewDecoder(res.Body).Decode(&vespaResponse)
+	if err != nil {
+		return nil, err
+	}
+	return &vespaResponse, nil
 }

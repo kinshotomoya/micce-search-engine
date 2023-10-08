@@ -11,3 +11,10 @@ func Error500(err error) *ErrorResponse {
 		Message:    err.Error(),
 	}
 }
+
+func Error400(err error) *ErrorResponse {
+	return &ErrorResponse{
+		StatusCode: 400,
+		Message:    err.Error(),
+	}
+}

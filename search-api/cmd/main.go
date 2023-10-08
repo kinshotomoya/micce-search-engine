@@ -18,7 +18,7 @@ import (
 
 func main() {
 	server := &http.Server{
-		Addr: ":8080",
+		Addr: ":8081",
 	}
 
 	env := flag.String("env", "", "環境変数取得")

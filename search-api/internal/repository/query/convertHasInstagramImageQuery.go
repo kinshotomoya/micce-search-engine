@@ -10,5 +10,5 @@ func ConvertHasInstagramImageQuery(condition *domain.SearchCondition) *FilterQue
 		return nil
 	}
 
-	return NewFilterQuery("category", Eq, fmt.Sprintf("%t", *condition.HasInstagramImage))
+	return NewFilterQuery("has_instagram_images", Eq, fmt.Sprintf("%t", *condition.HasInstagramImage))
 }

@@ -41,7 +41,7 @@ $ vespa status deploy --wait 300
 
 # 実際にデプロイ
 # search-engine配下のファイル群をデプロイ
-vespa deploy --wait 300 ./
+$ vespa deploy --wait 300 ./
 ```
 
 ## reader 
