@@ -4,6 +4,12 @@
 <!--    クラスター構成ではないので、adminクラスタ（config serverなど）は構築不要-->
 <!--    参考：https://github.com/vespa-engine/sample-apps/blob/master/news/app-1-getting-started/services.xml-->
     <container id='micce-container' version='1.0'>
+        <component id="kuromoji" class="jp.co.yahoo.vespa.language.lib.kuromoji.KuromojiLinguistics" bundle="kuromoji-linguistics">
+            <config name="language.lib.kuromoji.kuromoji">
+                <mode>search</mode>
+                <ignore_case>true</ignore_case>
+            </config>
+        </component>
         <search/>
         <document-api/>
         <document-processing/>
