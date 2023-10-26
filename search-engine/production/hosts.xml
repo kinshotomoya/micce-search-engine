@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='UTF-8'?>
+
+<hosts>
+    <!-- 1 config server nodes -->
+    <host name="micce_engine_admin.micce.internal.">
+        <alias>node0</alias>
+    </host>
+    <!-- 1 container, content server nodes -->
+    <!-- 特に処理少ないので2台構成で問題ないだろう -->
+    <host name="micce_engine_container_content.micce.internal.">
+        <alias>node1</alias>
+    </host>
+</hosts>

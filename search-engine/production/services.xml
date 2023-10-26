@@ -1,0 +1,45 @@
+<!-- 参考：https://github.com/vespa-engine/sample-apps/blob/master/examples/operations/multinode-HA/services.xml -->
+<?xml version='1.0' encoding='UTF-8'?>
+<services version="1.0" xmlns:deploy="vespa" xmlns:preprocess="properties">
+<admin version="2.0">
+        <configservers>
+            <configserver hostalias="node0" />
+        </configservers>
+        <cluster-controllers>
+            <cluster-controller hostalias="node0" />
+        </cluster-controllers>
+        <slobroks>
+            <slobrok hostalias="node0" />
+        </slobroks>
+
+        <adminserver hostalias="node0" />
+    </admin>
+
+    <container id='micce-container' version='1.0'>
+        <component id="kuromoji" class="jp.co.yahoo.vespa.language.lib.kuromoji.KuromojiLinguistics" bundle="kuromoji-linguistics">
+            <config name="language.lib.kuromoji.kuromoji">
+                <mode>search</mode>
+                <ignore_case>true</ignore_case>
+            </config>
+        </component>
+        <search/>
+        <document-api/>
+        <document-processing/>
+        <accesslog type="disabled"/>
+        <nodes>
+            <node hostalias='node1'/>
+        </nodes>
+    </container>
+
+    <content id='micce-content' version='1.0'>
+        <redundancy>2</redundancy>
+        <documents>
+            <document type='spot' mode="index"/>
+            <document-processing cluster="micce-container"/>
+        </documents>
+        <nodes>
+            <node hostalias="node1" distribution-key="0" />
+        </nodes>
+    </content>
+
+</services>
