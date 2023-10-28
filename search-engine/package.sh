@@ -11,5 +11,6 @@ mkdir target
 
 cp -r components target/
 cp -r schemas target/
-cp -r $ENV/ target/
+cp -r $ENV/services.xml target/
+cp -r $ENV/hosts.xml target/
 
