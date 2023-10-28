@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8" ?>
-
 <hosts>
     <!-- 1 config server nodes -->
     <host name="micce-engine-admin.pleel3fgblju3l1zbly0qo4cka.lx.internal.cloudapp.net">
