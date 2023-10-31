@@ -49,3 +49,8 @@ func (v *VespaClient) Do(request *VespaRequest) (*VespaResponse, error) {
 	}
 	return &vespaResponse, nil
 }
+
+func (v *VespaClient) Close() {
+	v.httpClient.CloseIdleConnections()
+
+}

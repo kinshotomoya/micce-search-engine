@@ -74,4 +74,6 @@ func main() {
 		return
 	}
 
+	vespaRepository.Close()
+
 }

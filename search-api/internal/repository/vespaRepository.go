@@ -16,7 +16,7 @@ func NewVespaRepository(client *model.VespaClient) *VespaRepository {
 	}
 }
 
-func (v VespaRepository) Search(searchCondition *domain.SearchCondition) (*model.VespaResponse, error) {
+func (v *VespaRepository) Search(searchCondition *domain.SearchCondition) (*model.VespaResponse, error) {
 	builder := query.NewQueryBuilder("spot", "*")
 	yql := builder.BuildQuery(searchCondition)
 	request := model.NewVespaRequest(yql, "spot")
@@ -25,4 +25,9 @@ func (v VespaRepository) Search(searchCondition *domain.SearchCondition) (*model
 		return nil, err
 	}
 	return res, nil
+}
+
+func (v *VespaRepository) Close() {
+	v.vespaClient.Close()
+
 }
