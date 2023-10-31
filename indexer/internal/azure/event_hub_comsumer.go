@@ -57,12 +57,19 @@ func NewProcessor(eventHubConsumer *azeventhubs.ConsumerClient, checkpointStore 
 
 func DispatchPartitionClients(processor *azeventhubs.Processor, ctx context.Context, vespaClient *vespa2.VespaClient) {
 	var wg sync.WaitGroup
+	// NOTE: 同時に起動するpartitionClientの数を3台に制御
+	ch := make(chan struct{}, 3)
 	for {
 		// NOTE: partitionから要求があるたびに、そのpartitionに対するClientが作成される
 		processorPartitionClient := processor.NextPartitionClient(ctx)
 		if processorPartitionClient == nil {
 			break
 		}
+		// NOTE: clientが作成されたらchannelのbufferを１つ満たす
+		// channelのbufferが3なので、4つめからはここで処理待ちが発生する
+		// eventHub -> vepsa upsertを処理をアプリケーションで制御する場合は
+		// このパターンを利用する
+		ch <- struct{}{}
 
 		log.Printf("partitionClient(%s) is running", processorPartitionClient.PartitionID())
 
@@ -75,6 +82,8 @@ func DispatchPartitionClients(processor *azeventhubs.Processor, ctx context.Cont
 				log.Printf("error process eventhub partitionId %s: %s", processorPartitionClient.PartitionID(), err.Error())
 			}
 			log.Println("子goroutine終了")
+			// NOTE: channel内のbufferを１つ解放
+			<-ch
 		}()
 	}
 	wg.Wait()
