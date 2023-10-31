@@ -53,7 +53,8 @@ func main() {
 
 	http.HandleFunc("/api/v1/search", handler.SearchHandler)
 
-	signalCtx, cancel := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	baseCtx := context.Background()
+	signalCtx, cancel := signal.NotifyContext(baseCtx, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	defer cancel()
 
 	go func() {
@@ -64,5 +65,13 @@ func main() {
 	}()
 
 	<-signalCtx.Done()
+
+	timeoutCtx, timeoutCancel := context.WithTimeout(baseCtx, 5*time.Second)
+	defer timeoutCancel()
+	err := server.Shutdown(timeoutCtx)
+	if err != nil {
+		log.Printf("fatal shutdown server. %s\n", err)
+		return
+	}
 
 }
