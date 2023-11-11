@@ -39,6 +39,7 @@ func main() {
 	// TODO: azureのcontainerで動かす場合は、環境変数にEVT_HUB_CONNECTION_NAME,AZURE_STORAGE_ACCOUNT_CONNECTION_NAMEを登録する
 	azureEventHubConnectionName := os.Getenv("EVT_HUB_CONNECTION_NAME")
 	azureStorageAccountConnectionName := os.Getenv("AZURE_STORAGE_ACCOUNT_CONNECTION_NAME")
+	vespaHostName := os.Getenv("VespaHostName")
 
 	fmt.Println(azureEventHubConnectionName, azureStorageAccountConnectionName)
 
@@ -56,7 +57,7 @@ func main() {
 	}
 
 	config := &vespa2.VespaConfig{
-		Url:     "http://localhost:8080",
+		Url:     fmt.Sprintf("http://%s:8080", vespaHostName),
 		Timeout: 1000,
 	}
 
