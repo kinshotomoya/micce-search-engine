@@ -14,9 +14,7 @@ import (
 	"time"
 )
 
-const eventHubNameSpace = "micce-search-engine"
 const eventHubName = "micce-search-engine"
-const partitionId = "0"
 const storageContainerName = "event-hub-checkpoint"
 
 func NewEventHubConsumerClient(azureEventHubConnectionString string, azureStorageAccountConnectionString string) (*azeventhubs.ConsumerClient, azeventhubs.CheckpointStore, error) {
@@ -42,7 +40,6 @@ func NewEventHubConsumerClient(azureEventHubConnectionString string, azureStorag
 }
 
 func NewProcessor(eventHubConsumer *azeventhubs.ConsumerClient, checkpointStore azeventhubs.CheckpointStore) (*azeventhubs.Processor, error) {
-	// TODO: 要調整
 	option := &azeventhubs.ProcessorOptions{
 		// NOTE: 5秒ごとにprocessorがpartitionに問い合わせる
 		UpdateInterval: 5 * time.Second,
@@ -103,7 +100,6 @@ parentLoop:
 		case <-ctx.Done():
 			break parentLoop
 		default:
-			// TODO: 5秒は要調整
 			receiveCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			// NOTE: 100件取得完了する、5秒経過するまで待ち受ける
 			// 5秒経過した場合errにErrorが入る
