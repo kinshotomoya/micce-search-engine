@@ -84,7 +84,6 @@ func main() {
 				run(ctx, fireStoreClient, azureEventHubProducer, &beforeOneHour)
 			}
 		}
-
 	}()
 
 	ctxNotify, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
