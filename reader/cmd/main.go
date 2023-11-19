@@ -105,36 +105,57 @@ func main() {
 }
 
 func run(ctx context.Context, fireStoreClient *firestore2.FireStoreClient, azureEventHubProducer *azure.EventHubProducer, startTime *time.Time) {
-
+	const EVENT_HUB_BATCH_SIZE = 100
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	documentIter := fireStoreClient.GetDocumentsByUpdateAt(ctx, *startTime)
 
+	// 3並列でeventHubに送る
+	ch := make(chan struct{}, 3)
+	eventDatas := make([]azeventhubs.EventData, 0, EVENT_HUB_BATCH_SIZE)
 	for {
 		snapShot, err := documentIter.Next()
 		if err != nil {
-			// もうないiterator中身がない場合ループを抜ける
 			log.Println("もうiteratorにないのでloop抜ける")
 			break
 		}
 		doc := firestore2.CreateDocument(snapShot)
-		sendToEventHub(ctx, azureEventHubProducer, doc)
+		var buf bytes.Buffer
+		err = json.NewEncoder(&buf).Encode(doc)
+		if err != nil {
+			log.Printf("fatal encode firestore data to json: %s", err.Error())
+		}
+		eventData := azeventhubs.EventData{
+			Body: buf.Bytes(),
+		}
+		eventDatas = append(eventDatas, eventData)
+		if len(eventDatas) >= EVENT_HUB_BATCH_SIZE {
+			// bufferを満たす
+			// 3並列までの制御のため
+			// 4つめgoroutineを作成する際にここで待ちが発生する
+			ch <- struct{}{}
+			goroutineEventDatas := make([]azeventhubs.EventData, 0, 100)
+			// 別のgoroutine内でだけで利用するスライスなのでコピーする
+			copy(goroutineEventDatas, eventDatas)
+			// 元々のスライスを初期化(len=0, cap=100になる)
+			eventDatas = eventDatas[:0]
+			go func() {
+				sendToEventHub(ctx, azureEventHubProducer, goroutineEventDatas)
+				// NOTE: channel内のbufferを１つ解放
+				<-ch
+			}()
+		}
 	}
+	if len(eventDatas) > 0 {
+		sendToEventHub(ctx, azureEventHubProducer, eventDatas)
+	}
+
 }
 
-func sendToEventHub(ctx context.Context, azureEventHubProducer *azure.EventHubProducer, data firestore2.Document) {
-	var buf bytes.Buffer
-	err := json.NewEncoder(&buf).Encode(data)
-	if err != nil {
-		log.Fatalf("fatal encode firestore data to json: %s", err.Error())
-	}
-
-	eventData := &azeventhubs.EventData{
-		Body: buf.Bytes(),
-	}
+func sendToEventHub(ctx context.Context, azureEventHubProducer *azure.EventHubProducer, eventDatas []azeventhubs.EventData) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
 	defer cancel()
-	eventDataBatch, err := azureEventHubProducer.CreateEventBatch(timeoutCtx, eventData)
+	eventDataBatch, err := azureEventHubProducer.CreateEventBatch(timeoutCtx, eventDatas)
 	if err != nil {
 		log.Printf("fatal create eventhub data: %s", err.Error())
 	}

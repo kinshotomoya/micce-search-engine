@@ -28,8 +28,7 @@ func (client *FireStoreClient) Close() {
 }
 
 func (client *FireStoreClient) GetDocumentsByUpdateAt(ctx context.Context, now time.Time) *firestore.DocumentIterator {
-	// TODO: limit外す
-	return client.Client.Collection("Spot").Where("updatedAt", ">=", now).Limit(30).Documents(ctx)
+	return client.Client.Collection("Spot").Where("updatedAt", ">=", now).Documents(ctx)
 }
 
 func (client *FireStoreClient) UpsertDocument(ctx context.Context, data any) error {

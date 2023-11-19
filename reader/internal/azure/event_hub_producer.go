@@ -33,15 +33,18 @@ func NewEventHubProducer(azureEventHubConnectionName string) (*EventHubProducer,
 
 }
 
-func (e *EventHubProducer) CreateEventBatch(ctx context.Context, eventData *azeventhubs.EventData) (*azeventhubs.EventDataBatch, error) {
+func (e *EventHubProducer) CreateEventBatch(ctx context.Context, eventDatas []azeventhubs.EventData) (*azeventhubs.EventDataBatch, error) {
 	batchData, err := e.producer.NewEventDataBatch(ctx, e.option)
 	if err != nil {
 		return nil, err
 	}
-	err = batchData.AddEventData(eventData, nil)
-	if err != nil {
-		return nil, err
+	for i := range eventDatas {
+		err = batchData.AddEventData(&eventDatas[i], nil)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	return batchData, nil
 }
 
