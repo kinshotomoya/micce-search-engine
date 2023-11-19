@@ -44,6 +44,18 @@ $ vespa status deploy --wait 300
 $ vespa deploy --wait 300 ./
 ```
 
+### 検索
+```shell
+curl -i -X POST \
+   -H "Content-Type:application/json" \
+   -d \
+'{
+  "yql": "select * from spot where true"
+}' \
+ 'http://localhost:8080/search/'
+```
+
+
 ## reader 
 
 システムアーキテクチャ
