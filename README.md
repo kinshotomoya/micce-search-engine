@@ -60,4 +60,4 @@ curl -i -X POST \
 
 システムアーキテクチャ
 
-![アーキテクチャ](image/reader.jpg)
+![アーキテクチャ](image/architecture.png)
