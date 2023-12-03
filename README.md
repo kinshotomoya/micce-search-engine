@@ -61,3 +61,20 @@ curl -i -X POST \
 システムアーキテクチャ
 
 ![アーキテクチャ](image/architecture.png)
+
+
+## mysqlマイグレーション
+
+- 利用ツール
+ddlだけ作っておいてそのファイルを編集していけば自動で差分検知しマイグレーションを行なってくれる
+https://github.com/sqldef/sqldef
+
+- ローカル
+```shell
+$ mysqldef --user=root --host=127.0.0.1 micceSearchEngine < rdbms-schema/ddl.sql
+```
+
+変更差分だけ表示したい場合
+```shell
+mysqldef --user=root --host=127.0.0.1 --dry-run micceSearchEngine < rdbms-schema/ddl.sql
+```

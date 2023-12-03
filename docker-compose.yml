@@ -9,3 +9,16 @@ services:
     ports:
       - "8080:8080"
       - "19071:19071"
+  mysql:
+    image: mysql:8.0.32
+    ports:
+      - 3306:3306
+    volumes:
+      - db-store:/var/lib/mysql
+      - ./logs:/var/log/mysql
+      - ./dockerfiles/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+    container_name: my-db
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=true
+volumes:
+  db-store:
