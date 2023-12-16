@@ -16,10 +16,10 @@ type EventHubProducer struct {
 	option   *azeventhubs.EventDataBatchOptions
 }
 
-const eventHubName = "micce-search-engine"
+const postEventHubName = "micce-search-engine"
 
-func NewEventHubProducer(azureEventHubConnectionName string) (*EventHubProducer, error) {
-	producerClient, err := azeventhubs.NewProducerClientFromConnectionString(azureEventHubConnectionName, eventHubName, nil)
+func NewPostEventHubProducer(azureEventHubConnectionName string) (*EventHubProducer, error) {
+	producerClient, err := azeventhubs.NewProducerClientFromConnectionString(azureEventHubConnectionName, postEventHubName, nil)
 	option := azeventhubs.EventDataBatchOptions{
 		//PartitionID: &partitionId,
 	}

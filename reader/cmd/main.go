@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs"
 	"github.com/joho/godotenv"
 	"log"
@@ -13,8 +12,8 @@ import (
 	"os/signal"
 	"reader/internal/azure"
 	firestore2 "reader/internal/firestore"
+	"reader/internal/service"
 	time2 "reader/internal/time"
-	"sync"
 	"syscall"
 	"time"
 )
@@ -32,10 +31,8 @@ func main() {
 		}
 	}
 
-	// TODO: azureのcontainerで動かす場合は、環境変数にEVT_HUB_CONNECTION_NAMEを登録する
 	azureEventHubConnectionName := os.Getenv("EVT_HUB_CONNECTION_NAME")
-
-	fmt.Println(azureEventHubConnectionName)
+	azureStorageAccountConnectionName := os.Getenv("AZURE_STORAGE_ACCOUNT_CONNECTION_NAME")
 
 	fireStoreClient, err := firestore2.NewClient(ctx)
 	defer fireStoreClient.Close()
@@ -43,68 +40,53 @@ func main() {
 		log.Printf("Failed to create firestore client: %v", err)
 	}
 
-	azureEventHubProducer, err := azure.NewEventHubProducer(azureEventHubConnectionName)
+	// pre-eventhubからイベントを取得するconsumerの作成
+	consumerProcessor, err := azure.NewPreEventHubConsumerClient(azureEventHubConnectionName, azureStorageAccountConnectionName)
+	if err != nil {
+		log.Fatalf("fatal create pre event hub consumer: %s", err.Error())
+	}
+
+	// post-eventhubにイベントを送るproducerの作成
+	azureEventHubProducer, err := azure.NewPostEventHubProducer(azureEventHubConnectionName)
 	if err != nil {
 		log.Fatalf("fatal create event hub producer: %s", err.Error())
 	}
 	defer azureEventHubProducer.Close(ctx)
 
 	if err != nil {
-		log.Printf("Failed to create gcp client: %v", err)
+		log.Printf("Failed to create post event hub producer: %v", err)
 	}
 
 	timeConf := time2.NewTime()
 
-	// TODO: 1時間ごとに変更
-	ticker := time.NewTicker(30 * time.Second)
-	tickerDoneChanel := make(chan bool)
+	readService := &service.ReadService{
+		EventHubConsumerProcessor: consumerProcessor,
+		EventHubProducer:          azureEventHubProducer,
+	}
 
-	// NOTE: firestoreに保存したSpotScheduledTimeコレクションから開始日を取得する
-	//  開始日から現在日時の間の更新データを全てqueueにつむ
-	//  indexer側でvespaにフィードする流量を調整する
-	doc, err := fireStoreClient.GetDocumentOne(ctx)
-	run(ctx, fireStoreClient, azureEventHubProducer, &doc.Datetime)
-	log.Println("finished scheduledTime upsert")
-
-	// 別スレッドでticker実行
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		for {
-			select {
-			case <-tickerDoneChanel:
-				log.Println("ticker stop")
-				wg.Done()
-				break
-			case <-ticker.C:
-				log.Println("running...")
-				//// TODO: ↓デバッグのために一年前のtimeを取得しているので1時間前に変更
-				beforeOneHour := timeConf.BeforeOneYear()
-				run(ctx, fireStoreClient, azureEventHubProducer, &beforeOneHour)
-			}
-		}
-	}()
+	withCancel, readServiceCancelFunc := context.WithCancel(ctx)
+	readService.Run(withCancel)
 
 	ctxNotify, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	defer cancel()
 
 	<-ctxNotify.Done()
 
+	// SIGTERMを受け取ったらeventHubConsumerクライアントそれぞれ終了させる（chanel閉じる）
+	readServiceCancelFunc()
 	err = setScheduledTime(ctx, fireStoreClient, timeConf)
 
 	if err != nil {
 		log.Printf("error upsert scheduled time: %s", err.Error())
 	}
 
-	tickerDoneChanel <- true
-
-	wg.Wait()
+	//wg.Wait()
 	log.Println("program exit")
 
 }
 
 func run(ctx context.Context, fireStoreClient *firestore2.FireStoreClient, azureEventHubProducer *azure.EventHubProducer, startTime *time.Time) {
+
 	const EVENT_HUB_BATCH_SIZE = 100
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

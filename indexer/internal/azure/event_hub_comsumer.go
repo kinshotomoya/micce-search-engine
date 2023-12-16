@@ -136,6 +136,7 @@ parentLoop:
 				vespaClient.Upsert(document)
 
 			}
+			// TODO: err（eventhubとの接続失敗、vespaへのupsert失敗）の場合には、checkpoint更新しないように
 
 			// NOTE: checkpointを更新する
 			if err := partitionClient.UpdateCheckpoint(ctx, events[len(events)-1], nil); err != nil {
