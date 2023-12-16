@@ -48,6 +48,14 @@ func NewPreEventHubConsumerClient(azureEventHubConnectionString string, azureSto
 
 }
 
+func (e *EventHubConsumerProcessor) Run(ctx context.Context) error {
+	err := e.Processor.Run(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (e *EventHubConsumerProcessor) DispatchPartitionClients(ctx context.Context) *azeventhubs.ProcessorPartitionClient {
 	processorPartitionClient := e.Processor.NextPartitionClient(ctx)
 	return processorPartitionClient

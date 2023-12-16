@@ -65,7 +65,11 @@ func main() {
 	}
 
 	withCancel, readServiceCancelFunc := context.WithCancel(ctx)
-	readService.Run(withCancel)
+	err = readService.Run(withCancel)
+
+	if err != nil {
+		log.Printf("error run eventhub Consumer: %s", err.Error())
+	}
 
 	ctxNotify, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	defer cancel()

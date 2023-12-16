@@ -15,13 +15,19 @@ type ReadService struct {
 	EventHubProducer          *azure.EventHubProducer
 }
 
-func (r ReadService) Run(ctx context.Context) {
+func (r ReadService) Run(ctx context.Context) error {
 	// 処理順番
 	// 1. event hub preからeventを取得する
 	// 2. 1で取得したeventのspot_idでRDBをupsert
 	// 3. RDBからis_vespa_updated: falseのレコードを取得
 	// 4. 2.3で取得した複数spot_idからspotデータを取得する
 	// 5. event hub postにeventを投げる
+
+	// consumerProcessorを起動
+	err := r.EventHubConsumerProcessor.Run(ctx)
+	if err != nil {
+		return err
+	}
 
 	var wg sync.WaitGroup
 	// NOTE: 同時に起動するpartitionClientの数を3台に制御
@@ -55,6 +61,7 @@ func (r ReadService) Run(ctx context.Context) {
 	}
 	wg.Wait()
 
+	return nil
 }
 
 func processEventsForPartition(partitionClient *azeventhubs.ProcessorPartitionClient, ctx context.Context) error {
