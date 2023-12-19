@@ -1,23 +1,28 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs"
 	"log"
-	"reader/internal/azure"
+	azure2 "reader/internal/repository/azure"
+	"reader/internal/repository/mysql"
+	"reader/internal/service/model"
 	"sync"
 	"time"
 )
 
 type ReadService struct {
-	EventHubConsumerProcessor *azure.EventHubConsumerProcessor
-	EventHubProducer          *azure.EventHubProducer
+	EventHubConsumerProcessor *azure2.EventHubConsumerProcessor
+	EventHubProducer          *azure2.EventHubProducer
+	MysqlRepository           *mysql.MysqlRepository
 }
 
-func (r ReadService) Run(ctx context.Context) error {
+func (r *ReadService) Run(ctx context.Context) error {
 	// 処理順番
-	// 1. event hub preからeventを取得する
+	// done 1. event hub preからeventを取得する
 	// 2. 1で取得したeventのspot_idでRDBをupsert
 	// 3. RDBからis_vespa_updated: falseのレコードを取得
 	// 4. 2.3で取得した複数spot_idからspotデータを取得する
@@ -50,7 +55,7 @@ func (r ReadService) Run(ctx context.Context) error {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := processEventsForPartition(processorPartitionClient, ctx)
+			err := r.processEventsForPartition(processorPartitionClient, ctx)
 			if err != nil {
 				log.Printf("error process eventhub partitionId %s: %s", processorPartitionClient.PartitionID(), err.Error())
 			}
@@ -64,7 +69,7 @@ func (r ReadService) Run(ctx context.Context) error {
 	return nil
 }
 
-func processEventsForPartition(partitionClient *azeventhubs.ProcessorPartitionClient, ctx context.Context) error {
+func (r *ReadService) processEventsForPartition(partitionClient *azeventhubs.ProcessorPartitionClient, ctx context.Context) error {
 	// closure
 	// 実際に実行されるまでshutdownPartitionResourceの引数は評価されない
 	defer func() {
@@ -85,14 +90,13 @@ parentLoop:
 			// ↑が終了したらとりあえずcontext.WithTimeoutで利用していたresource等を閉じる
 			cancel()
 
-			// NOTE: timeout等のエラーの場合はエラーを返す
-			if err != nil && errors.Is(err, context.DeadlineExceeded) {
+			// NOTE: errorならprocessEventsForPartition関数から抜ける
+			if err != nil || errors.Is(err, context.DeadlineExceeded) {
 				var eventhubError *azeventhubs.Error
-
 				if errors.As(err, &eventhubError) && eventhubError.Code == azeventhubs.ErrorCodeOwnershipLost {
-					return nil
+					log.Printf("decode event error: %s", err.Error())
+					return err
 				}
-				return err
 			}
 
 			if len(events) == 0 {
@@ -101,16 +105,24 @@ parentLoop:
 
 			log.Printf("partitionId: %s receive %d events", partitionClient.PartitionID(), len(events))
 
+			// NOTE: errorならprocessEventsForPartition関数から抜ける
+			event, err := decodeEvent(events)
+			if err != nil {
+				log.Printf("decode event error: %s", err.Error())
+				return err
+			}
+
 			// TODO: 後続処理実装
-			updateRdb()
-			getSpotIdFromRdb()
-			getSpotDataFromFirestore()
-			sendEventTo()
+
+			r.updateRdb(event)
+			r.getSpotIdFromRdb()
+			r.getSpotDataFromFirestore()
+			r.sendEventTo()
 
 			if err == nil {
-				// NOTE: checkpointを更新する
+				// NOTE: 正常に処理された場合はcheckpointを更新する
 				if err := partitionClient.UpdateCheckpoint(ctx, events[len(events)-1], nil); err != nil {
-					return err
+					break parentLoop
 				}
 			}
 		}
@@ -119,19 +131,34 @@ parentLoop:
 	return nil
 }
 
-func updateRdb() {
+func decodeEvent(events []*azeventhubs.ReceivedEventData) ([]model.PreEventData, error) {
+	preEventDataArray := make([]model.PreEventData, len(events))
+	for i := range events {
+		var buf bytes.Buffer
+		buf.Write(events[i].Body)
+		var preEventData model.PreEventData
+		err := json.NewDecoder(&buf).Decode(&preEventData)
+		if err != nil {
+			return nil, err
+		}
+		preEventDataArray[i] = preEventData
+	}
+
+	return preEventDataArray, nil
+}
+
+func (r *ReadService) updateRdb(events []model.PreEventData) {
+}
+
+func (r *ReadService) getSpotIdFromRdb() {
 
 }
 
-func getSpotIdFromRdb() {
+func (r *ReadService) getSpotDataFromFirestore() {
 
 }
 
-func getSpotDataFromFirestore() {
-
-}
-
-func sendEventTo() {
+func (r *ReadService) sendEventTo() {
 
 }
 

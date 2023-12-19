@@ -10,8 +10,8 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"reader/internal/azure"
-	firestore2 "reader/internal/firestore"
+	azure2 "reader/internal/repository/azure"
+	"reader/internal/repository/firestore"
 	"reader/internal/service"
 	time2 "reader/internal/time"
 	"syscall"
@@ -34,20 +34,20 @@ func main() {
 	azureEventHubConnectionName := os.Getenv("EVT_HUB_CONNECTION_NAME")
 	azureStorageAccountConnectionName := os.Getenv("AZURE_STORAGE_ACCOUNT_CONNECTION_NAME")
 
-	fireStoreClient, err := firestore2.NewClient(ctx)
+	fireStoreClient, err := firestore.NewClient(ctx)
 	defer fireStoreClient.Close()
 	if err != nil {
 		log.Printf("Failed to create firestore client: %v", err)
 	}
 
 	// pre-eventhubからイベントを取得するconsumerの作成
-	consumerProcessor, err := azure.NewPreEventHubConsumerClient(azureEventHubConnectionName, azureStorageAccountConnectionName)
+	consumerProcessor, err := azure2.NewPreEventHubConsumerClient(azureEventHubConnectionName, azureStorageAccountConnectionName)
 	if err != nil {
 		log.Fatalf("fatal create pre event hub consumer: %s", err.Error())
 	}
 
 	// post-eventhubにイベントを送るproducerの作成
-	azureEventHubProducer, err := azure.NewPostEventHubProducer(azureEventHubConnectionName)
+	azureEventHubProducer, err := azure2.NewPostEventHubProducer(azureEventHubConnectionName)
 	if err != nil {
 		log.Fatalf("fatal create event hub producer: %s", err.Error())
 	}
@@ -89,7 +89,7 @@ func main() {
 
 }
 
-func run(ctx context.Context, fireStoreClient *firestore2.FireStoreClient, azureEventHubProducer *azure.EventHubProducer, startTime *time.Time) {
+func run(ctx context.Context, fireStoreClient *firestore.FireStoreClient, azureEventHubProducer *azure2.EventHubProducer, startTime *time.Time) {
 
 	const EVENT_HUB_BATCH_SIZE = 100
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -105,7 +105,7 @@ func run(ctx context.Context, fireStoreClient *firestore2.FireStoreClient, azure
 			log.Println("もうiteratorにないのでloop抜ける")
 			break
 		}
-		doc := firestore2.CreateDocument(snapShot)
+		doc := firestore.CreateDocument(snapShot)
 		var buf bytes.Buffer
 		err = json.NewEncoder(&buf).Encode(doc)
 		if err != nil {
@@ -138,7 +138,7 @@ func run(ctx context.Context, fireStoreClient *firestore2.FireStoreClient, azure
 
 }
 
-func sendToEventHub(ctx context.Context, azureEventHubProducer *azure.EventHubProducer, eventDatas []azeventhubs.EventData) {
+func sendToEventHub(ctx context.Context, azureEventHubProducer *azure2.EventHubProducer, eventDatas []azeventhubs.EventData) {
 	timeoutCtx, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
 	defer cancel()
 	eventDataBatch, err := azureEventHubProducer.CreateEventBatch(timeoutCtx, eventDatas)
@@ -152,7 +152,7 @@ func sendToEventHub(ctx context.Context, azureEventHubProducer *azure.EventHubPr
 
 }
 
-func setScheduledTime(ctx context.Context, fireStoreClient *firestore2.FireStoreClient, timeConf *time2.Time) error {
+func setScheduledTime(ctx context.Context, fireStoreClient *firestore.FireStoreClient, timeConf *time2.Time) error {
 	scheduledTime := timeConf.Now()
 	data := make(map[string]time.Time)
 	data["datetime"] = scheduledTime
