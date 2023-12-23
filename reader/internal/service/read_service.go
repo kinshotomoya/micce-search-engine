@@ -5,8 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs"
-	"log"
+	"reader/internal"
 	model3 "reader/internal/domain/model"
 	azure2 "reader/internal/repository/azure"
 	"reader/internal/repository/firestore"
@@ -48,7 +49,7 @@ func (r *ReadService) Run(ctx context.Context) error {
 		// このパターンを利用する
 		ch <- struct{}{}
 
-		log.Printf("partitionClient(%s) is running", processorPartitionClient.PartitionID())
+		internal.Logger.Info(fmt.Sprintf("partitionClient(%s) is running", processorPartitionClient.PartitionID()))
 
 		// NOTE: clientごとに別のgoroutineでreceive処理を行う
 		wg.Add(1)
@@ -56,9 +57,9 @@ func (r *ReadService) Run(ctx context.Context) error {
 			defer wg.Done()
 			err := r.processEventsForPartition(processorPartitionClient, ctx)
 			if err != nil {
-				log.Printf("error process eventhub partitionId %s: %s", processorPartitionClient.PartitionID(), err.Error())
+				internal.Logger.Error(fmt.Sprintf("error process eventhub partitionId %s: %s", processorPartitionClient.PartitionID(), err.Error()))
 			}
-			log.Println("子goroutine終了")
+			internal.Logger.Info("子goroutine終了")
 			// NOTE: channel内のbufferを１つ解放
 			<-ch
 		}()
@@ -93,21 +94,22 @@ parentLoop:
 			if err != nil || errors.Is(err, context.DeadlineExceeded) {
 				var eventhubError *azeventhubs.Error
 				if errors.As(err, &eventhubError) && eventhubError.Code == azeventhubs.ErrorCodeOwnershipLost {
-					log.Printf("event timeout error: %s", err.Error())
+					internal.Logger.Error(fmt.Sprintf("event timeout error: %s", err.Error()))
 					return err
 				}
 			}
 
 			if len(events) == 0 {
+				internal.Logger.Info("receive event count is 0")
 				continue
 			}
 
-			log.Printf("partitionId: %s receive %d events", partitionClient.PartitionID(), len(events))
+			internal.Logger.Info(fmt.Sprintf("partitionId: %s receive %d events", partitionClient.PartitionID(), len(events)))
 
 			// NOTE: errorならprocessEventsForPartition関数から抜ける
 			event, err := decodeEvent(events)
 			if err != nil {
-				log.Printf("decode event error: %s", err.Error())
+				internal.Logger.Error(fmt.Sprintf("decode event error: %s", err.Error()))
 				return err
 			}
 
@@ -117,17 +119,17 @@ parentLoop:
 				for i := range event {
 					spotIds[i] = event[i].SpotId
 				}
-				log.Printf("fatal update %s: %s", spotIds, err.Error())
+				internal.Logger.Error(fmt.Sprintf("fatal update %s: %s", spotIds, err.Error()))
 				return err
 			}
 			spotIdsToUpdate, err := r.getSpotIdsToUpdate()
 			if err != nil {
-				log.Printf("fatal get spot id to update: %s", err.Error())
+				internal.Logger.Error(fmt.Sprintf("fatal get spot id to update: %s", err.Error()))
 				return err
 			}
 			err = r.getSpotDataFromFirestore(ctx, spotIdsToUpdate)
 			if err != nil {
-				log.Printf("fatal get spot data from firestore: %s", err.Error())
+				internal.Logger.Error(fmt.Sprintf("fatal get spot data from firestore: %s", err.Error()))
 				return err
 			}
 
@@ -151,7 +153,7 @@ func decodeEvent(events []*azeventhubs.ReceivedEventData) ([]model.PreEventData,
 		var preEventData model.PreEventData
 		err := json.NewDecoder(&buf).Decode(&preEventData)
 		if err != nil {
-			log.Printf("fatal decode event data: %s", err.Error())
+			internal.Logger.Error(fmt.Sprintf("fatal decode event data: %s", err.Error()))
 			return nil, err
 		}
 		preEventDataArray[i] = preEventData
@@ -182,7 +184,7 @@ func (r *ReadService) updateUpdateProcess(events []model.PreEventData) error {
 func (r *ReadService) getSpotIdsToUpdate() ([]string, error) {
 	spotIdsToUpdate, err := r.MysqlRepository.GetSpotIdsToUpdate()
 	if err != nil {
-		log.Printf("fatal get spotIds to update from Mysql: %s", err.Error())
+		internal.Logger.Error(fmt.Sprintf("fatal get spotIds to update from Mysql: %s", err.Error()))
 		return nil, err
 
 	}
@@ -196,14 +198,14 @@ func (r *ReadService) getSpotDataFromFirestore(ctx context.Context, spotIdsToUpd
 	for {
 		snapShot, err := documentIter.Next()
 		if err != nil {
-			log.Println("もうiteratorにないのでloop抜ける")
+			internal.Logger.Info("もうiteratorにないのでloop抜ける")
 			break
 		}
 		doc := firestore.CreateDocument(snapShot)
 		var buf bytes.Buffer
 		err = json.NewEncoder(&buf).Encode(doc)
 		if err != nil {
-			log.Printf("fatal encode firestore document: %s", err.Error())
+			internal.Logger.Error(fmt.Sprintf("fatal encode firestore document: %s", err.Error()))
 			return err
 		}
 		eventData := azeventhubs.EventData{
@@ -214,7 +216,7 @@ func (r *ReadService) getSpotDataFromFirestore(ctx context.Context, spotIdsToUpd
 
 	err := sendToEventHub(ctx, r.EventHubProducer, eventDatas)
 	if err != nil {
-		log.Printf("fatal send data to eventhub: %s", err.Error())
+		internal.Logger.Error(fmt.Sprintf("fatal send data to eventhub: %s", err.Error()))
 		return err
 	}
 
@@ -226,12 +228,12 @@ func sendToEventHub(ctx context.Context, azureEventHubProducer *azure2.EventHubP
 	defer cancel()
 	eventDataBatch, err := azureEventHubProducer.CreateEventBatch(timeoutCtx, eventDatas)
 	if err != nil {
-		log.Printf("fatal create event data batch: %s", err.Error())
+		internal.Logger.Error(fmt.Sprintf("fatal create event data batch: %s", err.Error()))
 		return err
 	}
 	err = azureEventHubProducer.Send(timeoutCtx, eventDataBatch)
 	if err != nil {
-		log.Printf("fatal send event data batch: %s", err.Error())
+		internal.Logger.Error(fmt.Sprintf("fatal send event data batch: %s", err.Error()))
 		return err
 	}
 
@@ -240,7 +242,7 @@ func sendToEventHub(ctx context.Context, azureEventHubProducer *azure2.EventHubP
 
 func shutdownPartitionResource(partitionClient *azeventhubs.ProcessorPartitionClient, ctx context.Context) {
 	if partitionClient != nil {
-		log.Printf("shutdown partitionClient(%s)", partitionClient.PartitionID())
+		internal.Logger.Info(fmt.Sprintf("shutdown partitionClient(%s)", partitionClient.PartitionID()))
 		partitionClient.Close(ctx)
 	}
 

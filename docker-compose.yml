@@ -16,7 +16,7 @@ services:
     volumes:
       - db-store:/var/lib/mysql
       - ./logs:/var/log/mysql
-      - ./dockerfiles/mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./schema:/docker-entrypoint-initdb.d
     container_name: my-db
     environment:
       - MYSQL_ALLOW_EMPTY_PASSWORD=true
