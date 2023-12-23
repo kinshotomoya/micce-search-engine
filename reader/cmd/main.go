@@ -1,21 +1,19 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
-	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs"
 	"github.com/joho/godotenv"
 	"log"
 	"os"
 	"os/signal"
+	"reader/internal/domain/model"
 	azure2 "reader/internal/repository/azure"
 	"reader/internal/repository/firestore"
+	"reader/internal/repository/mysql"
 	"reader/internal/service"
-	time2 "reader/internal/time"
+	"sync"
 	"syscall"
-	"time"
 )
 
 func main() {
@@ -54,111 +52,60 @@ func main() {
 	defer azureEventHubProducer.Close(ctx)
 
 	if err != nil {
-		log.Printf("Failed to create post event hub producer: %v", err)
+		log.Fatalf("Failed to create post event hub producer: %v", err)
 	}
 
-	timeConf := time2.NewTime()
+	repository, err := mysql.NewMysqlRepository()
+	if err != nil {
+		log.Fatalf("Failed to create mysql repository: %v", err)
+	}
+
+	customTime, err := model.NewCustomTime()
+	if err != nil {
+		log.Fatalf("Failed to create custom time: %v", err)
+	}
+
+	firestoreClient, err := firestore.NewClient(ctx)
+	if err != nil {
+		log.Fatalf("Failed to create firestoreClient: %v", err)
+	}
 
 	readService := &service.ReadService{
 		EventHubConsumerProcessor: consumerProcessor,
 		EventHubProducer:          azureEventHubProducer,
+		MysqlRepository:           repository,
+		CustomTime:                customTime,
+		FireStoreClient:           firestoreClient,
 	}
 
 	withCancel, readServiceCancelFunc := context.WithCancel(ctx)
-	err = readService.Run(withCancel)
 
-	if err != nil {
-		log.Printf("error run eventhub Consumer: %s", err.Error())
-	}
+	// consumerProcessorを起動
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		err = consumerProcessor.Run(withCancel)
+		if err != nil {
+			log.Fatalf("fatal run cunsumerProcessor: %s", err)
+		}
+		wg.Done()
+	}()
 
+	wg.Add(1)
+	go func() {
+		err = readService.Run(withCancel)
+		if err != nil {
+			log.Printf("error run eventhub Consumer: %s", err.Error())
+		}
+		wg.Done()
+	}()
+
+	// 終了シグナル待ち受け
 	ctxNotify, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	defer cancel()
-
 	<-ctxNotify.Done()
-
 	// SIGTERMを受け取ったらeventHubConsumerクライアントそれぞれ終了させる（chanel閉じる）
 	readServiceCancelFunc()
-	err = setScheduledTime(ctx, fireStoreClient, timeConf)
-
-	if err != nil {
-		log.Printf("error upsert scheduled time: %s", err.Error())
-	}
-
-	//wg.Wait()
+	wg.Wait()
 	log.Println("program exit")
-
-}
-
-func run(ctx context.Context, fireStoreClient *firestore.FireStoreClient, azureEventHubProducer *azure2.EventHubProducer, startTime *time.Time) {
-
-	const EVENT_HUB_BATCH_SIZE = 100
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-	documentIter := fireStoreClient.GetDocumentsByUpdateAt(ctx, *startTime)
-
-	// 3並列でeventHubに送る
-	ch := make(chan struct{}, 3)
-	eventDatas := make([]azeventhubs.EventData, 0, EVENT_HUB_BATCH_SIZE)
-	for {
-		snapShot, err := documentIter.Next()
-		if err != nil {
-			log.Println("もうiteratorにないのでloop抜ける")
-			break
-		}
-		doc := firestore.CreateDocument(snapShot)
-		var buf bytes.Buffer
-		err = json.NewEncoder(&buf).Encode(doc)
-		if err != nil {
-			log.Printf("fatal encode firestore data to json: %s", err.Error())
-		}
-		eventData := azeventhubs.EventData{
-			Body: buf.Bytes(),
-		}
-		eventDatas = append(eventDatas, eventData)
-		if len(eventDatas) >= EVENT_HUB_BATCH_SIZE {
-			// bufferを満たす
-			// 3並列までの制御のため
-			// 4つめgoroutineを作成する際にここで待ちが発生する
-			ch <- struct{}{}
-			goroutineEventDatas := make([]azeventhubs.EventData, 0, 100)
-			// 別のgoroutine内でだけで利用するスライスなのでコピーする
-			copy(goroutineEventDatas, eventDatas)
-			// 元々のスライスを初期化(len=0, cap=100になる)
-			eventDatas = eventDatas[:0]
-			go func() {
-				sendToEventHub(ctx, azureEventHubProducer, goroutineEventDatas)
-				// NOTE: channel内のbufferを１つ解放
-				<-ch
-			}()
-		}
-	}
-	if len(eventDatas) > 0 {
-		sendToEventHub(ctx, azureEventHubProducer, eventDatas)
-	}
-
-}
-
-func sendToEventHub(ctx context.Context, azureEventHubProducer *azure2.EventHubProducer, eventDatas []azeventhubs.EventData) {
-	timeoutCtx, cancel := context.WithTimeout(ctx, 1000*time.Millisecond)
-	defer cancel()
-	eventDataBatch, err := azureEventHubProducer.CreateEventBatch(timeoutCtx, eventDatas)
-	if err != nil {
-		log.Printf("fatal create eventhub data: %s", err.Error())
-	}
-	err = azureEventHubProducer.Send(timeoutCtx, eventDataBatch)
-	if err != nil {
-		log.Printf("fatal send eventhub data: %s", err.Error())
-	}
-
-}
-
-func setScheduledTime(ctx context.Context, fireStoreClient *firestore.FireStoreClient, timeConf *time2.Time) error {
-	scheduledTime := timeConf.Now()
-	data := make(map[string]time.Time)
-	data["datetime"] = scheduledTime
-	err := fireStoreClient.UpsertDocument(ctx, data)
-	if err != nil {
-		return err
-	}
-	return nil
 }
