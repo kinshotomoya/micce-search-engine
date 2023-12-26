@@ -113,7 +113,7 @@ parentLoop:
 				return err
 			}
 
-			err = r.updateUpdateProcess(event)
+			spotIdsToUpdate, err := r.updateUpdateProcess(ctx, event)
 			if err != nil {
 				spotIds := make([]string, len(event))
 				for i := range event {
@@ -122,11 +122,7 @@ parentLoop:
 				internal.Logger.Error(fmt.Sprintf("fatal update %s: %s", spotIds, err.Error()))
 				return err
 			}
-			spotIdsToUpdate, err := r.getSpotIdsToUpdate()
-			if err != nil {
-				internal.Logger.Error(fmt.Sprintf("fatal get spot id to update: %s", err.Error()))
-				return err
-			}
+
 			err = r.getSpotDataFromFirestore(ctx, spotIdsToUpdate)
 			if err != nil {
 				internal.Logger.Error(fmt.Sprintf("fatal get spot data from firestore: %s", err.Error()))
@@ -162,7 +158,7 @@ func decodeEvent(events []*azeventhubs.ReceivedEventData) ([]model.PreEventData,
 	return preEventDataArray, nil
 }
 
-func (r *ReadService) updateUpdateProcess(events []model.PreEventData) error {
+func (r *ReadService) updateUpdateProcess(ctx context.Context, events []model.PreEventData) ([]string, error) {
 	conditions := make([]model2.UpsertCondition, len(events))
 	for i := range events {
 		conditions[i] = model2.UpsertCondition{
@@ -173,21 +169,11 @@ func (r *ReadService) updateUpdateProcess(events []model.PreEventData) error {
 		}
 	}
 
-	err := r.MysqlRepository.UpsertIsVespaUpdated(conditions)
+	spotIdsToUpdate, err := r.MysqlRepository.UpsertIsVespaUpdatedAndGetSpotIdsToUpdate(ctx, conditions)
 	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (r *ReadService) getSpotIdsToUpdate() ([]string, error) {
-	spotIdsToUpdate, err := r.MysqlRepository.GetSpotIdsToUpdate()
-	if err != nil {
-		internal.Logger.Error(fmt.Sprintf("fatal get spotIds to update from Mysql: %s", err.Error()))
 		return nil, err
-
 	}
+
 	return spotIdsToUpdate, nil
 }
 

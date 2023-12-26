@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
@@ -38,7 +39,19 @@ func NewMysqlRepository() (*MysqlRepository, error) {
 
 }
 
-func (m *MysqlRepository) UpsertIsVespaUpdated(conditions []model.UpsertCondition) error {
+// UpsertIsVespaUpdatedAndGetSpotIdsToUpdate NOTE: upsertとselectを１つのトランザクションの中で行う
+func (m *MysqlRepository) UpsertIsVespaUpdatedAndGetSpotIdsToUpdate(ctx context.Context, conditions []model.UpsertCondition) ([]string, error) {
+	tx, err := m.client.BeginTx(ctx, nil)
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
+	if err != nil {
+		return nil, err
+	}
 	queries := make([]string, len(conditions))
 	for i := range conditions {
 		value := fmt.Sprintf("(%s,%s,%s,%T)", conditions[i].SpotId, conditions[i].UpdatedAt, conditions[i].VespaUpdatedAt, conditions[i].IsVespaUpdated)
@@ -46,12 +59,27 @@ func (m *MysqlRepository) UpsertIsVespaUpdated(conditions []model.UpsertConditio
 	}
 	values := strings.Join(queries, ",")
 
-	_, err := m.client.Query("INSERT INTO update_process (spot_id, updated_at, vespa_updated_at, is_vespa_updated) VALUES ? AS new ON DUPLICATE KEY UPDATE spot_id = new.spot_id, updated_at = new.updated_at, vespa_updated_at = new.vespa_updated_at, is_vespa_updated = new.is_vespa_updated", values)
+	_, err = tx.ExecContext(ctx, "INSERT INTO update_process (spot_id, updated_at, vespa_updated_at, is_vespa_updated) VALUES ? AS new ON DUPLICATE KEY UPDATE spot_id = new.spot_id, updated_at = new.updated_at, vespa_updated_at = new.vespa_updated_at, is_vespa_updated = new.is_vespa_updated", values)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	rows, err := tx.QueryContext(ctx, "SELECT spot_id FROM update_process WHERE is_vespa_updated = false")
+	if err != nil {
+		return nil, err
+	}
+
+	resultSpotIds := make([]string, 0)
+	for rows.Next() {
+		var spotId string
+		err := rows.Scan(&spotId)
+		if err != nil {
+			return nil, err
+		}
+		resultSpotIds = append(resultSpotIds, spotId)
+	}
+
+	return resultSpotIds, nil
 
 }
 
