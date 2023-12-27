@@ -13,13 +13,6 @@ go run cmd/main.go -env dev
 
 
 ◻️データベースにスポットが存在しない場合
-これは今まで通りアプリサーバが処理行う
+これは今まで通りアプリサーバが処理行う（google APIからspot情報を取得して、pre eventHubにeventを送る）
 => 検索エンジンにindexするフローとしては、reader -> eventhubs -> indexerのフローの一系統にまとめたいので
-
-直列で行うと今まで通り検索レイテンシが懸念なのでアプリサーバでは以下改善を行う
-別スレッドでfirestoreに対して今まで通りの検索を行い、スポットがなかったらGoogle apiを叩いたfirestoreにデータを格納する
-
-
-◻️TODO:プロセスキルした時間をfirestoreの新しいコレクションに登録・更新する
-次回readerプロセスが起動した際に（デプロイ時など）その時間を元にreaderの処理を始める
 

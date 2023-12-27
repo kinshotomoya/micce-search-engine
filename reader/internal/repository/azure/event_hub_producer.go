@@ -3,7 +3,7 @@ package azure
 import (
 	"context"
 	"github.com/Azure/azure-sdk-for-go/sdk/messaging/azeventhubs"
-	"log"
+	"reader/internal"
 )
 
 // 参考：
@@ -16,10 +16,10 @@ type EventHubProducer struct {
 	option   *azeventhubs.EventDataBatchOptions
 }
 
-const eventHubName = "micce-search-engine"
+const postEventHubName = "micce-search-engine"
 
-func NewEventHubProducer(azureEventHubConnectionName string) (*EventHubProducer, error) {
-	producerClient, err := azeventhubs.NewProducerClientFromConnectionString(azureEventHubConnectionName, eventHubName, nil)
+func NewPostEventHubProducer(azureEventHubConnectionName string) (*EventHubProducer, error) {
+	producerClient, err := azeventhubs.NewProducerClientFromConnectionString(azureEventHubConnectionName, postEventHubName, nil)
 	option := azeventhubs.EventDataBatchOptions{
 		//PartitionID: &partitionId,
 	}
@@ -59,6 +59,6 @@ func (e *EventHubProducer) Send(ctx context.Context, batch *azeventhubs.EventDat
 func (e *EventHubProducer) Close(ctx context.Context) {
 	err := e.producer.Close(ctx)
 	if err != nil {
-		log.Fatalf("fatal close event hub producer: %s", err.Error())
+		internal.Logger.Error("fatal close event hub producer: %s", err.Error())
 	}
 }
