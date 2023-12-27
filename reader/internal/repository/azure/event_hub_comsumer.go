@@ -22,7 +22,6 @@ func NewPreEventHubConsumerClient(azureEventHubConnectionString string, azureSto
 	}
 
 	checkPointStore, err := checkpoints.NewBlobStore(azBlobClient, nil)
-
 	if err != nil {
 		return nil, err
 	}

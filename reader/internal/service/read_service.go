@@ -59,7 +59,7 @@ func (r *ReadService) Run(ctx context.Context) error {
 			if err != nil {
 				internal.Logger.Error(fmt.Sprintf("error process eventhub partitionId %s: %s", processorPartitionClient.PartitionID(), err.Error()))
 			}
-			internal.Logger.Info("子goroutine終了")
+			internal.Logger.Info(fmt.Sprintf("partitionClient(%s) finished", processorPartitionClient.PartitionID()))
 			// NOTE: channel内のbufferを１つ解放
 			<-ch
 		}()
@@ -100,11 +100,11 @@ parentLoop:
 			}
 
 			if len(events) == 0 {
-				internal.Logger.Info("receive event count is 0")
+				internal.Logger.Info(fmt.Sprintf("partitionClient(%s) receive event count is 0", partitionClient.PartitionID()))
 				continue
 			}
 
-			internal.Logger.Info(fmt.Sprintf("partitionId: %s receive %d events", partitionClient.PartitionID(), len(events)))
+			internal.Logger.Info(fmt.Sprintf("partitionClient(%s) receive %d events", partitionClient.PartitionID(), len(events)))
 
 			// NOTE: errorならprocessEventsForPartition関数から抜ける
 			event, err := decodeEvent(events)
@@ -131,6 +131,7 @@ parentLoop:
 
 			if err == nil {
 				// NOTE: 正常に処理された場合はcheckpointを更新する
+				internal.Logger.Info(fmt.Sprintf("partitionClient(%s): update checkpoint", partitionClient.PartitionID()))
 				if err := partitionClient.UpdateCheckpoint(ctx, events[len(events)-1], nil); err != nil {
 					break parentLoop
 				}
@@ -144,6 +145,7 @@ parentLoop:
 func decodeEvent(events []*azeventhubs.ReceivedEventData) ([]model.PreEventData, error) {
 	preEventDataArray := make([]model.PreEventData, len(events))
 	for i := range events {
+		internal.Logger.Info(string(events[i].Body))
 		var buf bytes.Buffer
 		buf.Write(events[i].Body)
 		var preEventData model.PreEventData

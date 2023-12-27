@@ -59,7 +59,7 @@ func (m *MysqlRepository) UpsertIsVespaUpdatedAndGetSpotIdsToUpdate(ctx context.
 	}
 	values := strings.Join(queries, ",")
 
-	_, err = tx.ExecContext(ctx, "INSERT INTO update_process (spot_id, updated_at, vespa_updated_at, is_vespa_updated) VALUES ? AS new ON DUPLICATE KEY UPDATE spot_id = new.spot_id, updated_at = new.updated_at, vespa_updated_at = new.vespa_updated_at, is_vespa_updated = new.is_vespa_updated", values)
+	_, err = tx.ExecContext(ctx, fmt.Sprintf("INSERT INTO update_process (spot_id, updated_at, vespa_updated_at, is_vespa_updated) VALUES %s AS new ON DUPLICATE KEY UPDATE spot_id = new.spot_id, updated_at = new.updated_at, vespa_updated_at = new.vespa_updated_at, is_vespa_updated = new.is_vespa_updated", values))
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (m *MysqlRepository) UpsertIsVespaUpdatedAndGetSpotIdsToUpdate(ctx context.
 	resultSpotIds := make([]string, 0)
 	for rows.Next() {
 		var spotId string
-		err := rows.Scan(&spotId)
+		err = rows.Scan(&spotId)
 		if err != nil {
 			return nil, err
 		}
@@ -81,23 +81,4 @@ func (m *MysqlRepository) UpsertIsVespaUpdatedAndGetSpotIdsToUpdate(ctx context.
 
 	return resultSpotIds, nil
 
-}
-
-func (m *MysqlRepository) GetSpotIdsToUpdate() ([]string, error) {
-	rows, err := m.client.Query("SELECT spot_id FROM update_process WHERE is_vespa_updated = false")
-	if err != nil {
-		return nil, err
-	}
-
-	resultSpotIds := make([]string, 0)
-	for rows.Next() {
-		var spotId string
-		err := rows.Scan(&spotId)
-		if err != nil {
-			return nil, err
-		}
-		resultSpotIds = append(resultSpotIds, spotId)
-	}
-
-	return resultSpotIds, nil
 }
