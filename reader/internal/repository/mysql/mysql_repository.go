@@ -40,8 +40,9 @@ func NewMysqlRepository() (*MysqlRepository, error) {
 }
 
 // UpsertIsVespaUpdatedAndGetSpotIdsToUpdate NOTE: upsertとselectを１つのトランザクションの中で行う
-func (m *MysqlRepository) UpsertIsVespaUpdatedAndGetSpotIdsToUpdate(ctx context.Context, conditions []model.UpsertCondition) ([]string, error) {
-	tx, err := m.client.BeginTx(ctx, nil)
+func (m *MysqlRepository) UpsertIsVespaUpdatedAndGetSpotIdsToUpdate(timeoutCtx context.Context, conditions []model.UpsertCondition) ([]string, error) {
+	// TODO：終了シグナル受け取り時にエラー起きているので見直す
+	tx, err := m.client.BeginTx(timeoutCtx, nil)
 	defer func() {
 		if err != nil {
 			tx.Rollback()
@@ -54,17 +55,18 @@ func (m *MysqlRepository) UpsertIsVespaUpdatedAndGetSpotIdsToUpdate(ctx context.
 	}
 	queries := make([]string, len(conditions))
 	for i := range conditions {
-		value := fmt.Sprintf("(%s,%s,%s,%T)", conditions[i].SpotId, conditions[i].UpdatedAt, conditions[i].VespaUpdatedAt, conditions[i].IsVespaUpdated)
+		value := fmt.Sprintf("('%s','%s',%t)", conditions[i].SpotId, conditions[i].UpdatedAt, conditions[i].IsVespaUpdated)
 		queries[i] = value
 	}
 	values := strings.Join(queries, ",")
 
-	_, err = tx.ExecContext(ctx, fmt.Sprintf("INSERT INTO update_process (spot_id, updated_at, vespa_updated_at, is_vespa_updated) VALUES %s AS new ON DUPLICATE KEY UPDATE spot_id = new.spot_id, updated_at = new.updated_at, vespa_updated_at = new.vespa_updated_at, is_vespa_updated = new.is_vespa_updated", values))
+	q := fmt.Sprintf("INSERT INTO update_process (spot_id, updated_at, is_vespa_updated) VALUES %s AS new ON DUPLICATE KEY UPDATE spot_id = new.spot_id, updated_at = new.updated_at, is_vespa_updated = new.is_vespa_updated", values)
+	_, err = tx.ExecContext(timeoutCtx, q)
 	if err != nil {
 		return nil, err
 	}
 
-	rows, err := tx.QueryContext(ctx, "SELECT spot_id FROM update_process WHERE is_vespa_updated = false")
+	rows, err := tx.QueryContext(timeoutCtx, "SELECT spot_id FROM update_process WHERE is_vespa_updated = false")
 	if err != nil {
 		return nil, err
 	}

@@ -108,6 +108,7 @@ func main() {
 	defer cancel()
 	<-ctxNotify.Done()
 	// SIGTERMを受け取ったらeventHubConsumerクライアントそれぞれ終了させる（chanel閉じる）
+	internal.Logger.Info("signal received")
 	readServiceCancelFunc()
 	wg.Wait()
 	internal.Logger.Info("program exit")

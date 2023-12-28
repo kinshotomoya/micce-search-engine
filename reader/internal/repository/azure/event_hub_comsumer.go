@@ -33,8 +33,8 @@ func NewPreEventHubConsumerClient(azureEventHubConnectionString string, azureSto
 	}
 
 	option := &azeventhubs.ProcessorOptions{
-		// NOTE: 5秒ごとにprocessorがpartitionに問い合わせる
-		UpdateInterval: 5 * time.Second,
+		// NOTE: 15秒ごとにprocessorがpartitionに問い合わせる
+		UpdateInterval: 15 * time.Second,
 	}
 	processor, err := azeventhubs.NewProcessor(consumerClient, checkPointStore, option)
 	if err != nil {

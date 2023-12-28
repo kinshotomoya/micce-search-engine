@@ -26,5 +26,5 @@ func (client *FireStoreClient) Close() {
 }
 
 func (client *FireStoreClient) GetDocumentsBySpotIds(ctx context.Context, spotIds []string) *firestore.DocumentIterator {
-	return client.Client.Collection("Spot").Where("", "in", spotIds).Documents(ctx)
+	return client.Client.Collection("Spot").Where("id", "in", spotIds).Documents(ctx)
 }
