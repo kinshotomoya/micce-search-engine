@@ -5,8 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"github.com/joho/godotenv"
-	"indexer/internal/azure"
-	vespa2 "indexer/internal/vespa"
+	"indexer/internal"
+	"indexer/internal/domain/model"
+	"indexer/internal/repository/azure"
+	"indexer/internal/repository/mysql"
+	"indexer/internal/repository/vespa"
+	"indexer/internal/service"
 	"log"
 	"net/http"
 	"os"
@@ -20,9 +24,9 @@ func main() {
 
 	// 1.eventhubからmessageをstreamで取得
 	// 2.vespaにドキュメントをupsert
+	// TODO: 3. rdbにvespa更新完了記録する
 
-	// NOTE: ↓streaming apiを使えば、subscriber側でポーリングせずにstreamでmessageを取得できる
-	// https://christina04.hatenablog.com/entry/cloud-pubsub
+	internal.InitLogger()
 
 	ctx := context.Background()
 
@@ -40,22 +44,12 @@ func main() {
 	azureStorageAccountConnectionName := os.Getenv("AZURE_STORAGE_ACCOUNT_CONNECTION_NAME")
 	vespaHostName := os.Getenv("VespaHostName")
 
-	fmt.Println(azureEventHubConnectionName, azureStorageAccountConnectionName)
-
-	eventHubConsumer, checkpointStore, err := azure.NewEventHubConsumerClient(azureEventHubConnectionName, azureStorageAccountConnectionName)
-	defer eventHubConsumer.Close(ctx)
-
+	consumerProcessor, err := azure.NewPreEventHubConsumerClient(azureEventHubConnectionName, azureStorageAccountConnectionName)
 	if err != nil {
-		log.Fatalf("fatal create azure eventHubConsumer: %s", err.Error())
+		internal.Logger.Error(fmt.Sprintf("fatal create pre event hub consumer: %s", err.Error()))
 	}
 
-	processor, err := azure.NewProcessor(eventHubConsumer, checkpointStore)
-
-	if err != nil {
-		log.Fatalf("fatal create azure eventhub processor: %s", err.Error())
-	}
-
-	config := &vespa2.VespaConfig{
+	config := &vespa.VespaConfig{
 		Url:     fmt.Sprintf("http://%s:8080", vespaHostName),
 		Timeout: 1000,
 	}
@@ -74,36 +68,58 @@ func main() {
 		Timeout: 90 * time.Second,
 	}
 
-	vespaClient := &vespa2.VespaClient{
+	vespaClient := &vespa.VespaClient{
 		Client: httpClient,
 		Config: config,
+	}
+
+	repository, err := mysql.NewMysqlRepository()
+	if err != nil {
+		internal.Logger.Error(fmt.Sprintf("Failed to create mysql repository: %v", err))
+	}
+
+	customTime, err := model.NewCustomTime()
+	if err != nil {
+		internal.Logger.Error(fmt.Sprintf("Failed to create custom time: %v", err))
+	}
+
+	readService := &service.ReadService{
+		EventHubConsumerProcessor: consumerProcessor,
+		MysqlRepository:           repository,
+		VespaClient:               vespaClient,
+		CustomTime:                customTime,
 	}
 
 	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	defer cancel()
 
-	log.Println("program is running")
-
 	var wg sync.WaitGroup
+
+	// processorを起動する
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		azure.DispatchPartitionClients(processor, ctx, vespaClient)
-		log.Println("親goroutine終了")
+		err = consumerProcessor.Run(ctx)
+		if err != nil {
+			internal.Logger.Error(fmt.Sprintf("fatal run cunsumerProcessor: %s", err))
+		}
 	}()
 
-	// processorを起動する
-	log.Println("start processor")
-	if err := processor.Run(ctx); err != nil {
-		log.Fatalf("fatal run azure eventhub processor: %s", err.Error())
-	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		err = readService.Run(ctx)
+		if err != nil {
+			internal.Logger.Error(fmt.Sprintf("fatal run cunsumerProcessor: %s", err))
+		}
+	}()
 
 	wg.Wait()
 
-	log.Println("receive kill signal")
+	internal.Logger.Info("receive kill signal")
 
 	vespaClient.Close()
 
-	log.Println("program exit")
+	internal.Logger.Info("program exit")
 
 }

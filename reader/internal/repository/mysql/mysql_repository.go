@@ -41,7 +41,6 @@ func NewMysqlRepository() (*MysqlRepository, error) {
 
 // UpsertIsVespaUpdatedAndGetSpotIdsToUpdate NOTE: upsertとselectを１つのトランザクションの中で行う
 func (m *MysqlRepository) UpsertIsVespaUpdatedAndGetSpotIdsToUpdate(timeoutCtx context.Context, conditions []model.UpsertCondition) ([]string, error) {
-	// TODO：終了シグナル受け取り時にエラー起きているので見直す
 	tx, err := m.client.BeginTx(timeoutCtx, nil)
 	defer func() {
 		if err != nil {

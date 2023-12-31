@@ -3,7 +3,9 @@ package vespa
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"indexer/internal"
 	"io"
 	"log"
 	"net/http"
@@ -24,12 +26,12 @@ func (v *VespaClient) Close() {
 https://docs.vespa.ai/en/document-v1-api-guide.html#upserts
 */
 
-func (v *VespaClient) Upsert(document Document) {
+func (v *VespaClient) Upsert(document Document) error {
 	body, err := createBody(document)
 	fmt.Println(body)
 	if err != nil {
-		log.Printf("fatal create request body: %s", err.Error())
-		return
+		internal.Logger.Error(fmt.Sprintf("fatal create request body: %s", err.Error()))
+		return err
 	}
 	url := fmt.Sprintf("%s/document/v1/default/spot/docid/%s?create=true", v.Config.Url, document.Id)
 	req, _ := http.NewRequest("PUT", url, body)
@@ -37,13 +39,19 @@ func (v *VespaClient) Upsert(document Document) {
 
 	res, err := v.Client.Do(req)
 	if err != nil {
-		log.Printf("fatal put document to vespa: %s", err.Error())
-		return
+		internal.Logger.Error(fmt.Sprintf("fatal put document to vespa: %s", err.Error()))
+		return err
 	}
 	defer res.Body.Close()
 
-	bytt, _ := io.ReadAll(res.Body)
-	fmt.Println(bytt)
+	if res.StatusCode != 200 && res.StatusCode != 201 {
+		body, err := io.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+		return errors.New(string(body))
+	}
+	return nil
 
 }
 
