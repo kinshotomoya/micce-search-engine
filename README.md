@@ -36,6 +36,9 @@ $ docker compose up -d
 
 $ cd search-engine
 
+$ ./package.sh local
+
+$ cd target
 # デプロイできるか確認
 $ vespa status deploy --wait 300
 

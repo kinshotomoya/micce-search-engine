@@ -43,10 +43,6 @@ func (r *ReadService) Run(signalCtx context.Context) error {
 		if processorPartitionClient == nil {
 			break
 		}
-		// NOTE: clientが作成されたらchannelのbufferを１つ満たす
-		// channelのbufferが3なので、4つめからはここで処理待ちが発生する
-		// eventHub -> vepsa upsertを処理をアプリケーションで制御する場合は
-		// このパターンを利用する
 		ch <- struct{}{}
 
 		internal.Logger.Info(fmt.Sprintf("partitionClient(%s) is running", processorPartitionClient.PartitionID()))
@@ -215,7 +211,7 @@ func (r *ReadService) getSpotDataFromFirestore(ctx context.Context, spotIdsToUpd
 		eventDatas = append(eventDatas, eventData)
 	}
 
-	err := sendToEventHub(ctx, r.EventHubProducer, eventDatas)
+	err := r.sendToEventHub(ctx, eventDatas)
 	if err != nil {
 		internal.Logger.Error(fmt.Sprintf("fatal send data to eventhub: %s", err.Error()))
 		return err
@@ -224,15 +220,15 @@ func (r *ReadService) getSpotDataFromFirestore(ctx context.Context, spotIdsToUpd
 	return nil
 
 }
-func sendToEventHub(ctx context.Context, azureEventHubProducer *azure2.EventHubProducer, eventDatas []azeventhubs.EventData) error {
+func (r *ReadService) sendToEventHub(ctx context.Context, eventDatas []azeventhubs.EventData) error {
 	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	eventDataBatch, err := azureEventHubProducer.CreateEventBatch(timeoutCtx, eventDatas)
+	eventDataBatch, err := r.EventHubProducer.CreateEventBatch(timeoutCtx, eventDatas)
 	if err != nil {
 		internal.Logger.Error(fmt.Sprintf("fatal create event data batch: %s", err.Error()))
 		return err
 	}
-	err = azureEventHubProducer.Send(timeoutCtx, eventDataBatch)
+	err = r.EventHubProducer.Send(timeoutCtx, eventDataBatch)
 	if err != nil {
 		internal.Logger.Error(fmt.Sprintf("fatal send event data batch: %s", err.Error()))
 		return err

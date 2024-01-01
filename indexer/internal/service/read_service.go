@@ -29,18 +29,15 @@ func (r *ReadService) Run(signalCtx context.Context) error {
 	// NOTE: 同時に起動するpartitionClientの数を3台に制御
 	ch := make(chan struct{}, 3)
 	for {
-		fmt.Println("sss")
 		// NOTE: partitionから要求があるたびに、そのpartitionに対するClientが作成される
 		processorPartitionClient := r.EventHubConsumerProcessor.DispatchPartitionClients(signalCtx)
 		if processorPartitionClient == nil {
 			break
 		}
-		fmt.Println(len(ch))
 		ch <- struct{}{}
 
 		internal.Logger.Info(fmt.Sprintf("partitionClient(%s) is running", processorPartitionClient.PartitionID()))
 
-		// NOTE: clientごとに別のgoroutineでreceive処理を行う
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -178,6 +175,7 @@ func (r *ReadService) updateEventProcess(ctx context.Context, documents []vespa.
 	for i := range documents {
 		conditions[i] = model2.UpsertCondition{
 			SpotId:         documents[i].Id,
+			UpdatedAt:      r.CustomTime.DatetimeNow(),
 			VespaUpdatedAt: r.CustomTime.DatetimeNow(),
 			IsVespaUpdated: true,
 		}

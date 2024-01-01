@@ -16,7 +16,7 @@ type EventHubProducer struct {
 	option   *azeventhubs.EventDataBatchOptions
 }
 
-const postEventHubName = "micce-search-engine"
+const postEventHubName = "micce-search-engine-index"
 
 func NewPostEventHubProducer(azureEventHubConnectionName string) (*EventHubProducer, error) {
 	producerClient, err := azeventhubs.NewProducerClientFromConnectionString(azureEventHubConnectionName, postEventHubName, nil)

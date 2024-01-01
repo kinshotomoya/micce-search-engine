@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const eventHubName = "micce-search-engine"
+const eventHubName = "micce-search-engine-index"
 const storageContainerName = "event-hub-checkpoint"
 
 type EventHubConsumerProcessor struct {
@@ -36,6 +36,7 @@ func NewPreEventHubConsumerClient(azureEventHubConnectionString string, azureSto
 		// NOTE: 15秒ごとにprocessorがpartitionに問い合わせる
 		UpdateInterval: 15 * time.Second,
 	}
+
 	processor, err := azeventhubs.NewProcessor(consumerClient, checkPointStore, option)
 	if err != nil {
 		return nil, err

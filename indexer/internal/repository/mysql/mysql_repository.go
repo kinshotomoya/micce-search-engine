@@ -53,12 +53,12 @@ func (m *MysqlRepository) UpsertIsVespaUpdated(timeoutCtx context.Context, condi
 	}
 	queries := make([]string, len(conditions))
 	for i := range conditions {
-		value := fmt.Sprintf("('%s','%s',%t)", conditions[i].SpotId, conditions[i].VespaUpdatedAt, conditions[i].IsVespaUpdated)
+		value := fmt.Sprintf("('%s','%s', '%s', %t)", conditions[i].SpotId, conditions[i].UpdatedAt, conditions[i].VespaUpdatedAt, conditions[i].IsVespaUpdated)
 		queries[i] = value
 	}
 	values := strings.Join(queries, ",")
 
-	q := fmt.Sprintf("INSERT INTO update_process (spot_id, vespa_updated_at, is_vespa_updated) VALUES %s AS new ON DUPLICATE KEY UPDATE spot_id = new.spot_id, vespa_updated_at = new.vespa_updated_at, is_vespa_updated = new.is_vespa_updated", values)
+	q := fmt.Sprintf("INSERT INTO update_process (spot_id, vespa_updated_at, updated_at, is_vespa_updated) VALUES %s AS new ON DUPLICATE KEY UPDATE spot_id = new.spot_id, updated_at = new.updated_at, vespa_updated_at = new.vespa_updated_at, is_vespa_updated = new.is_vespa_updated", values)
 	_, err = tx.ExecContext(timeoutCtx, q)
 	if err != nil {
 		return err

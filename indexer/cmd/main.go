@@ -22,10 +22,6 @@ import (
 
 func main() {
 
-	// 1.eventhubからmessageをstreamで取得
-	// 2.vespaにドキュメントをupsert
-	// TODO: 3. rdbにvespa更新完了記録する
-
 	internal.InitLogger()
 
 	ctx := context.Background()
@@ -90,16 +86,14 @@ func main() {
 		CustomTime:                customTime,
 	}
 
-	ctx, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
-	defer cancel()
-
+	withCancel, readServiceCancelFunc := context.WithCancel(ctx)
 	var wg sync.WaitGroup
 
 	// processorを起動する
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err = consumerProcessor.Run(ctx)
+		err = consumerProcessor.Run(withCancel)
 		if err != nil {
 			internal.Logger.Error(fmt.Sprintf("fatal run cunsumerProcessor: %s", err))
 		}
@@ -108,18 +102,21 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err = readService.Run(ctx)
+		err = readService.Run(withCancel)
 		if err != nil {
 			internal.Logger.Error(fmt.Sprintf("fatal run cunsumerProcessor: %s", err))
 		}
 	}()
 
-	wg.Wait()
+	// 終了シグナル待ち受け
+	ctxNotify, cancel := signal.NotifyContext(ctx, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	defer cancel()
+	<-ctxNotify.Done()
 
 	internal.Logger.Info("receive kill signal")
-
+	readServiceCancelFunc()
 	vespaClient.Close()
-
+	wg.Wait()
 	internal.Logger.Info("program exit")
 
 }
