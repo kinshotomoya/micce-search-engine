@@ -81,6 +81,8 @@ func main() {
 		FireStoreClient:           firestoreClient,
 	}
 
+	// TODO: 1分に一回、is_vespa_updated=falseのレコードをeventhub-postに入れるバッチ作成
+
 	withCancel, readServiceCancelFunc := context.WithCancel(ctx)
 
 	// consumerProcessorを起動
