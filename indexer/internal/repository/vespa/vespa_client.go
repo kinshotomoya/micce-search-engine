@@ -28,7 +28,6 @@ https://docs.vespa.ai/en/document-v1-api-guide.html#upserts
 
 func (v *VespaClient) Upsert(document Document) error {
 	body, err := createBody(document)
-	fmt.Println(body)
 	if err != nil {
 		internal.Logger.Error(fmt.Sprintf("fatal create request body: %s", err.Error()))
 		return err

@@ -26,6 +26,8 @@ type ReadService struct {
 	FireStoreClient           *firestore.FireStoreClient
 }
 
+const GetLimitSize = 20
+
 func (r *ReadService) Run(signalCtx context.Context) error {
 	// 処理順番
 	// done 1. event hub preからeventを取得する
@@ -91,11 +93,10 @@ parentLoop:
 func (r *ReadService) runLoop(partitionClient *azeventhubs.ProcessorPartitionClient) error {
 	mainCtx, mainCancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer mainCancel()
-	// NOTE: 最大100件取得完了する、3秒経過するまで待ち受ける
-	// 5秒経過した場合、3秒間で取得できたeventを返す
+	// NOTE: 最大30件取得完了する、3秒経過するまで待ち受ける
 	receiveCtx, receiveCtxCancel := context.WithTimeout(mainCtx, 3*time.Second)
 	defer receiveCtxCancel()
-	events, err := partitionClient.ReceiveEvents(receiveCtx, 100, nil)
+	events, err := partitionClient.ReceiveEvents(receiveCtx, GetLimitSize, nil)
 
 	// NOTE: errorならprocessEventsForPartition関数から抜ける
 	if err != nil || errors.Is(err, context.DeadlineExceeded) {
@@ -140,6 +141,15 @@ func (r *ReadService) runLoop(partitionClient *azeventhubs.ProcessorPartitionCli
 		return err
 	}
 
+	// NOTE: ready -> processingにする
+	updateUpdateProcessIndexStatusCtx, updateUpdateProcessIndexStatusCancel := context.WithTimeout(mainCtx, 3*time.Second)
+	defer updateUpdateProcessIndexStatusCancel()
+	err = r.updateUpdateProcessIndexStatus(updateUpdateProcessIndexStatusCtx, spotIdsToUpdate)
+	if err != nil {
+		internal.Logger.Error(fmt.Sprintf("fatal update process index status: %s", err.Error()))
+		return err
+	}
+
 	if err == nil {
 		// NOTE: 正常に処理された場合はcheckpointを更新する
 		updateCheckpointCtx, updateCheckpointCtxCancel := context.WithTimeout(mainCtx, 3*time.Second)
@@ -155,7 +165,6 @@ func (r *ReadService) runLoop(partitionClient *azeventhubs.ProcessorPartitionCli
 func decodeEvent(events []*azeventhubs.ReceivedEventData) ([]model.PreEventData, error) {
 	preEventDataArray := make([]model.PreEventData, len(events))
 	for i := range events {
-		internal.Logger.Info(string(events[i].Body))
 		var buf bytes.Buffer
 		buf.Write(events[i].Body)
 		var preEventData model.PreEventData
@@ -170,6 +179,24 @@ func decodeEvent(events []*azeventhubs.ReceivedEventData) ([]model.PreEventData,
 	return preEventDataArray, nil
 }
 
+func (r *ReadService) updateUpdateProcessIndexStatus(ctx context.Context, spot_ids []string) error {
+	conditions := make([]model2.UpsertCondition, len(spot_ids))
+	for i := range spot_ids {
+		conditions[i] = model2.UpsertCondition{
+			SpotId:      spot_ids[i],
+			UpdatedAt:   r.CustomTime.DatetimeNow(),
+			IndexStatus: model2.PROCESSING,
+		}
+	}
+
+	err := r.MysqlRepository.UpdateIndexStatus(ctx, conditions)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *ReadService) updateUpdateProcess(ctx context.Context, events []model.PreEventData) ([]string, error) {
 	conditions := make([]model2.UpsertCondition, len(events))
 	for i := range events {
@@ -178,6 +205,7 @@ func (r *ReadService) updateUpdateProcess(ctx context.Context, events []model.Pr
 			UpdatedAt:      r.CustomTime.DatetimeNow(),
 			VespaUpdatedAt: nil,
 			IsVespaUpdated: false,
+			IndexStatus:    model2.READY,
 		}
 	}
 
@@ -195,8 +223,14 @@ func (r *ReadService) getSpotDataFromFirestore(ctx context.Context, spotIdsToUpd
 	for {
 		snapShot, err := documentIter.Next()
 		if err != nil {
-			internal.Logger.Info("もうiteratorにないのでloop抜ける")
-			break
+			if err.Error() == "no more items in iterator" {
+				internal.Logger.Info("もうiteratorにないのでloop抜ける")
+				break
+			} else {
+				internal.Logger.Error(err.Error())
+				internal.Logger.Info("firestoreに存在しないidなので次に行く")
+				continue
+			}
 		}
 		doc := firestore.CreateDocument(snapShot)
 		var buf bytes.Buffer

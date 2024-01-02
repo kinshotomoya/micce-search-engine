@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "tools"
+version = "0.1.0"
+description = ""
+authors = ["金正朋也 <mhtnim1023@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+firebase-admin = "^6.3.0"
+google-cloud-firestore = "^2.14.0"
+azure-eventhub = "^5.11.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

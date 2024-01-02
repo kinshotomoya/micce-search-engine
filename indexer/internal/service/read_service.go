@@ -167,6 +167,7 @@ func (r *ReadService) upsertVespa(documents []vespa.Document) error {
 	if errs != nil {
 		return errs
 	}
+	internal.Logger.Info(fmt.Sprintf("update vespa: %d", len(documents)))
 	return nil
 }
 
@@ -178,6 +179,7 @@ func (r *ReadService) updateEventProcess(ctx context.Context, documents []vespa.
 			UpdatedAt:      r.CustomTime.DatetimeNow(),
 			VespaUpdatedAt: r.CustomTime.DatetimeNow(),
 			IsVespaUpdated: true,
+			IndexStatus:    model2.COMPLETED,
 		}
 	}
 
