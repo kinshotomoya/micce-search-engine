@@ -93,7 +93,7 @@ parentLoop:
 func (r *ReadService) runLoop(partitionClient *azeventhubs.ProcessorPartitionClient) error {
 	mainCtx, mainCancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer mainCancel()
-	// NOTE: 最大30件取得完了する、3秒経過するまで待ち受ける
+	// NOTE: 最大20件取得完了する、3秒経過するまで待ち受ける
 	receiveCtx, receiveCtxCancel := context.WithTimeout(mainCtx, 3*time.Second)
 	defer receiveCtxCancel()
 	events, err := partitionClient.ReceiveEvents(receiveCtx, GetLimitSize, nil)
@@ -123,7 +123,8 @@ func (r *ReadService) runLoop(partitionClient *azeventhubs.ProcessorPartitionCli
 
 	updateUpdateProcessCtx, updateUpdateProcessCtxCancel := context.WithTimeout(mainCtx, 3*time.Second)
 	defer updateUpdateProcessCtxCancel()
-	spotIdsToUpdate, err := r.updateUpdateProcess(updateUpdateProcessCtx, event)
+	// NOTE: rdbから更新対象のspot_idを30件取得する
+	spotIdsToUpdate, err := r.getUpdateSpotIds(updateUpdateProcessCtx, event)
 	if err != nil {
 		spotIds := make([]string, len(event))
 		for i := range event {
@@ -135,13 +136,14 @@ func (r *ReadService) runLoop(partitionClient *azeventhubs.ProcessorPartitionCli
 
 	getSpotDataFromFirestoreCtx, getSpotDataFromFirestoreCtxCancel := context.WithTimeout(mainCtx, 3*time.Second)
 	defer getSpotDataFromFirestoreCtxCancel()
-	err = r.getSpotDataFromFirestore(getSpotDataFromFirestoreCtx, spotIdsToUpdate)
+	// NOTE: firestoreから更新対象のspotデータを30件取得する
+	err = r.getSpotDataFromFirestoreAndSendEventHub(getSpotDataFromFirestoreCtx, spotIdsToUpdate)
 	if err != nil {
 		internal.Logger.Error(fmt.Sprintf("fatal get spot data from firestore: %s", err.Error()))
 		return err
 	}
 
-	// NOTE: ready -> processingにする
+	// NOTE: 更新対象spot_idのindex_statusをready -> processingにする
 	updateUpdateProcessIndexStatusCtx, updateUpdateProcessIndexStatusCancel := context.WithTimeout(mainCtx, 3*time.Second)
 	defer updateUpdateProcessIndexStatusCancel()
 	err = r.updateUpdateProcessIndexStatus(updateUpdateProcessIndexStatusCtx, spotIdsToUpdate)
@@ -197,7 +199,7 @@ func (r *ReadService) updateUpdateProcessIndexStatus(ctx context.Context, spot_i
 	return nil
 }
 
-func (r *ReadService) updateUpdateProcess(ctx context.Context, events []model.PreEventData) ([]string, error) {
+func (r *ReadService) getUpdateSpotIds(ctx context.Context, events []model.PreEventData) ([]string, error) {
 	conditions := make([]model2.UpsertCondition, len(events))
 	for i := range events {
 		conditions[i] = model2.UpsertCondition{
@@ -217,7 +219,7 @@ func (r *ReadService) updateUpdateProcess(ctx context.Context, events []model.Pr
 	return spotIdsToUpdate, nil
 }
 
-func (r *ReadService) getSpotDataFromFirestore(ctx context.Context, spotIdsToUpdate []string) error {
+func (r *ReadService) getSpotDataFromFirestoreAndSendEventHub(ctx context.Context, spotIdsToUpdate []string) error {
 	documentIter := r.FireStoreClient.GetDocumentsBySpotIds(ctx, spotIdsToUpdate)
 	eventDatas := make([]azeventhubs.EventData, 0, len(spotIdsToUpdate))
 	for {
@@ -277,4 +279,52 @@ func shutdownPartitionResource(partitionClient *azeventhubs.ProcessorPartitionCl
 		partitionClient.Close(ctx)
 	}
 
+}
+
+func (r *ReadService) RunZombieBatch(ctx context.Context) error {
+	timeoutCtx, timeoutCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer timeoutCancel()
+	ids, err := r.MysqlRepository.GetIndexStatusReady(timeoutCtx)
+	if err != nil {
+		return err
+	}
+
+	if len(ids) == 0 {
+		internal.Logger.Info("no READY data")
+		return nil
+	}
+
+	for {
+		if len(ids) <= 30 {
+			err = r.runZombieBatchLoop(ctx, ids)
+			if err != nil {
+				return err
+			}
+			break
+		} else {
+			updateIds := ids[:30]
+			err = r.runZombieBatchLoop(ctx, updateIds)
+			if err != nil {
+				return err
+			}
+			ids = ids[30:]
+		}
+	}
+	return nil
+}
+
+func (r *ReadService) runZombieBatchLoop(ctx context.Context, ids []string) error {
+	firestoreCtx, firestoreCtxCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer firestoreCtxCancel()
+	err := r.getSpotDataFromFirestoreAndSendEventHub(firestoreCtx, ids)
+	if err != nil {
+		return err
+	}
+	updateUpdateProcessIndexStatusCtx, updateUpdateProcessIndexStatusCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer updateUpdateProcessIndexStatusCancel()
+	err = r.updateUpdateProcessIndexStatus(updateUpdateProcessIndexStatusCtx, ids)
+	if err != nil {
+		return err
+	}
+	return nil
 }

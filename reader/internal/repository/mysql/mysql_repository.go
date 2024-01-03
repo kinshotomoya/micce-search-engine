@@ -39,7 +39,7 @@ func NewMysqlRepository() (*MysqlRepository, error) {
 
 }
 
-func (m MysqlRepository) UpdateIndexStatus(timeoutCtx context.Context, conditions []model.UpsertCondition) error {
+func (m *MysqlRepository) UpdateIndexStatus(timeoutCtx context.Context, conditions []model.UpsertCondition) error {
 	tx, err := m.client.BeginTx(timeoutCtx, nil)
 	defer func() {
 		if err != nil {
@@ -110,5 +110,23 @@ func (m *MysqlRepository) UpsertIsVespaUpdatedAndGetSpotIdsToUpdate(timeoutCtx c
 	}
 
 	return resultSpotIds, nil
+}
 
+func (m *MysqlRepository) GetIndexStatusReady(timeoutCtx context.Context) ([]string, error) {
+	rows, err := m.client.QueryContext(timeoutCtx, "SELECT spot_id FROM update_process WHERE index_status = 'READY'")
+	if err != nil {
+		return nil, err
+	}
+
+	resultSpotIds := make([]string, 0)
+	for rows.Next() {
+		var spotId string
+		err = rows.Scan(&spotId)
+		if err != nil {
+			return nil, err
+		}
+		resultSpotIds = append(resultSpotIds, spotId)
+	}
+
+	return resultSpotIds, nil
 }

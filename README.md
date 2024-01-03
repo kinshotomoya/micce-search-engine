@@ -81,3 +81,12 @@ $ mysqldef --user=root --host=127.0.0.1 micceSearchEngine < rdbms-schema/ddl.sql
 ```shell
 mysqldef --user=root --host=127.0.0.1 --dry-run micceSearchEngine < rdbms-schema/ddl.sql
 ```
+
+
+## eventhub-preにeventdata入れる
+
+```shell
+$ cd tools
+$ poetry install
+$ poetry run python insert_spot.py
+```

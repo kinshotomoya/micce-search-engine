@@ -15,6 +15,7 @@ import (
 	"reader/internal/service"
 	"sync"
 	"syscall"
+	"time"
 )
 
 func main() {
@@ -28,7 +29,7 @@ func main() {
 	if *env == "dev" {
 		envErr := godotenv.Load()
 		if envErr != nil {
-			internal.Logger.Error("error loading .env file")
+			panic("error loading .env file")
 		}
 	}
 
@@ -38,39 +39,35 @@ func main() {
 	fireStoreClient, err := firestore.NewClient(ctx)
 	defer fireStoreClient.Close()
 	if err != nil {
-		internal.Logger.Error(fmt.Sprintf("Failed to create firestore client: %v", err))
+		panic(fmt.Sprintf("Failed to create firestore client: %v", err))
 	}
 
 	// pre-eventhubからイベントを取得するconsumerの作成
 	consumerProcessor, err := azure2.NewPreEventHubConsumerClient(azureEventHubConnectionName, azureStorageAccountConnectionName)
 	if err != nil {
-		internal.Logger.Error(fmt.Sprintf("fatal create pre event hub consumer: %s", err.Error()))
+		panic(fmt.Sprintf("fatal create pre event hub consumer: %s", err.Error()))
 	}
 
 	// post-eventhubにイベントを送るproducerの作成
 	azureEventHubProducer, err := azure2.NewPostEventHubProducer(azureEventHubConnectionName)
 	if err != nil {
-		internal.Logger.Error(fmt.Sprintf("fatal create event hub producer: %s", err.Error()))
+		panic(fmt.Sprintf("fatal create event hub producer: %s", err.Error()))
 	}
 	defer azureEventHubProducer.Close(ctx)
 
-	if err != nil {
-		internal.Logger.Error(fmt.Sprintf("Failed to create post event hub producer: %v", err))
-	}
-
 	repository, err := mysql.NewMysqlRepository()
 	if err != nil {
-		internal.Logger.Error(fmt.Sprintf("Failed to create mysql repository: %v", err))
+		panic(fmt.Sprintf("Failed to create mysql repository: %v", err))
 	}
 
 	customTime, err := model.NewCustomTime()
 	if err != nil {
-		internal.Logger.Error(fmt.Sprintf("Failed to create custom time: %v", err))
+		panic(fmt.Sprintf("Failed to create custom time: %v", err))
 	}
 
 	firestoreClient, err := firestore.NewClient(ctx)
 	if err != nil {
-		internal.Logger.Error(fmt.Sprintf("Failed to create firestoreClient: %v", err))
+		panic(fmt.Sprintf("Failed to create firestoreClient: %v", err))
 	}
 
 	readService := &service.ReadService{
@@ -80,8 +77,6 @@ func main() {
 		CustomTime:                customTime,
 		FireStoreClient:           firestoreClient,
 	}
-
-	// TODO: 1分に一回、is_vespa_updated=falseのレコードをeventhub-postに入れるバッチ作成
 
 	withCancel, readServiceCancelFunc := context.WithCancel(ctx)
 
@@ -103,6 +98,26 @@ func main() {
 			internal.Logger.Error(fmt.Sprintf("error run eventhub Consumer: %s", err.Error()))
 		}
 		wg.Done()
+	}()
+
+	// NOTE: 1分に一回、index_status = READYのレコードをeventhub-postに入れるバッチ
+	wg.Add(1)
+	ticker := time.NewTicker(5 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-withCancel.Done():
+				internal.Logger.Info("ticker stopped")
+				wg.Done()
+				return
+			case <-ticker.C:
+				internal.Logger.Info("zombie batch execute")
+				err = readService.RunZombieBatch(withCancel)
+				if err != nil {
+					internal.Logger.Error(fmt.Sprintf("error run zombie batch: %s", err.Error()))
+				}
+			}
+		}
 	}()
 
 	// 終了シグナル待ち受け
