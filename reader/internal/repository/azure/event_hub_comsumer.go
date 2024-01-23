@@ -26,6 +26,9 @@ func NewPreEventHubConsumerClient(azureEventHubConnectionString string, azureSto
 		return nil, err
 	}
 
+	// NOTE: 複数マシンでconsumerClientを動かす場合は、consumerGroupを対象のグループを指定する
+	// ただeventHubの価格レベルがBasicなのでconsumerGroupは1つしか作成できない
+	// standard,premiumしか複数consumerGroupを作成できない
 	consumerClient, err := azeventhubs.NewConsumerClientFromConnectionString(azureEventHubConnectionString, preEventHubName, azeventhubs.DefaultConsumerGroup, nil)
 
 	if err != nil {
