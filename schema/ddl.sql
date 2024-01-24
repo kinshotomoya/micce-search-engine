@@ -1,4 +1,4 @@
-CREATE DATABASE IF NOT EXISTS micce_search_engine;
+CREATE DATABASE IF NOT EXISTS micce-search-engine-db;
 
 CREATE TABLE update_process(
     spot_id CHAR(21) NOT NULL,
