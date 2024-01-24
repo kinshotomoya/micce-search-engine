@@ -11,7 +11,6 @@ import (
 	"indexer/internal/repository/mysql"
 	"indexer/internal/repository/vespa"
 	"indexer/internal/service"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -32,7 +31,7 @@ func main() {
 	if *env == "dev" {
 		envErr := godotenv.Load()
 		if envErr != nil {
-			log.Fatal("error loading .env file")
+			panic("error loading .env file")
 		}
 	}
 
@@ -71,12 +70,12 @@ func main() {
 
 	repository, err := mysql.NewMysqlRepository()
 	if err != nil {
-		internal.Logger.Error(fmt.Sprintf("Failed to create mysql repository: %v", err))
+		panic(fmt.Sprintf("Failed to create mysql repository: %v", err))
 	}
 
 	customTime, err := model.NewCustomTime()
 	if err != nil {
-		internal.Logger.Error(fmt.Sprintf("Failed to create custom time: %v", err))
+		panic(fmt.Sprintf("Failed to create mysql repository: %v", err))
 	}
 
 	readService := &service.ReadService{

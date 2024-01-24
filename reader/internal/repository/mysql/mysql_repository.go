@@ -23,6 +23,10 @@ func NewMysqlRepository() (*MysqlRepository, error) {
 		DBName: os.Getenv("MYSQL_DB_NAME"),
 	}
 
+	// NOTE: azure flexible serverでは、mysql_native_passwordがデフォルトの認証プラグインであり
+	// caching_sha2_passwordは2024/01/24時点でサポートされていない
+	// 参考：https://learn.microsoft.com/ja-jp/azure/mysql/select-right-deployment-type
+	conf.AllowNativePasswords = true
 	db, err := sql.Open("mysql", conf.FormatDSN())
 	if err != nil {
 		return nil, err
