@@ -16,7 +16,6 @@
 - id,name,koreaName,category,hasInstagramImages,lat,lon,limit,offset
 - nameとkoreaNameとlat,lonで検索をかける
 
-シノニム辞書は
 
 ### TODO（要検討・後々追加する機能）
 - 「ウェルビー名駅店」など検索エンジンには存在しないspotをどう判断するか検索エンジン側の仕組みで考える
@@ -59,11 +58,9 @@ curl -i -X POST \
 ```
 
 
-## reader 
+## システムアーキテクチャ
 
-システムアーキテクチャ
-
-![アーキテクチャ](image/architecture.png)
+![アーキテクチャ](image/feed-architecture.png)
 
 
 ## mysqlマイグレーション
@@ -83,7 +80,7 @@ mysqldef --user=root --host=127.0.0.1 --dry-run micceSearchEngine < rdbms-schema
 ```
 
 
-## eventhub-preにeventdata入れる
+## 本番firestoreのデータをeventhub-preに流し込む作業
 
 ```shell
 $ cd tools
