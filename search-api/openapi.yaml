@@ -4,7 +4,7 @@ info:
   title: search-api API定義書
   description: 検索api
 servers:
-  - url: "http://localhost:8003"
+  - url: "http://localhost:8001"
 paths:
   /api/v1/search:
     post:
@@ -24,15 +24,17 @@ paths:
                     type: object
                     properties:
                       latitude:
-                        type: float
+                        type: integer
+                        format: float
+                        example: 35.0
                       longitude:
-                        type: float
+                        type: integer
+                        format: float
+                        example: 135.0
                   nullable: true
                 catgory:
                   type: string
                   nullable: true
-                # TODO: 
-                # bookmark:
                 has_instagram_image:
                   type: boolean
                   nullable: true

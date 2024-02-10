@@ -30,6 +30,7 @@ USER search-api
 WORKDIR /bin
 
 COPY --from=builder /app/bin/search-api ./
-# firestore認証キーをコンテナ内に持ってくる
+
+EXPOSE 8081
 
 CMD [ "/bin/search-api" ]

@@ -87,3 +87,12 @@ $ cd tools
 $ poetry install
 $ poetry run python insert_spot.py
 ```
+
+## search-apiのインターフェース定義書
+
+openapi定義書があるのでそちらを参照
+docker composeでswagger-uiを立ち上げて
+
+```shell
+$ open http://localhost:8002
+```

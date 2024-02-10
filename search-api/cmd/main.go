@@ -51,6 +51,7 @@ func main() {
 
 	handler := presentation.NewHandler(vespaRepository)
 
+	http.HandleFunc("/health", handler.HealthHandler)
 	http.HandleFunc("/api/v1/search", handler.SearchHandler)
 
 	baseCtx := context.Background()
