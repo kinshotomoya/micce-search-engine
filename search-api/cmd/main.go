@@ -21,13 +21,6 @@ func main() {
 		Addr: ":8081",
 	}
 
-	bblot, err := repository.NewBboltRepositpry()
-	if err != nil {
-		return
-	}
-
-	bblot.Write()
-
 	env := flag.String("env", "", "環境変数取得")
 	flag.Parse()
 
@@ -54,7 +47,15 @@ func main() {
 		Timeout: 90 * time.Second,
 	}
 
-	vespaRepository := repository.NewVespaRepository(model.NewVespaClient(httpClient, vespaUrl))
+	bblot, err := repository.NewBboltRepositpry()
+	if err != nil {
+		return
+	}
+
+	vespaRepository := repository.NewVespaRepository(
+		model.NewVespaClient(httpClient, vespaUrl),
+		bblot,
+	)
 
 	handler := presentation.NewHandler(vespaRepository)
 

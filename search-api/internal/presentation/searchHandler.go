@@ -11,6 +11,7 @@ import (
 
 type Handler struct {
 	vespaRepository *repository.VespaRepository
+	bboltRepository *repository.BboltRepository
 }
 
 func NewHandler(vespaRepository *repository.VespaRepository) *Handler {
