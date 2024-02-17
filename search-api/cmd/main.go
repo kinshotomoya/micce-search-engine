@@ -21,6 +21,13 @@ func main() {
 		Addr: ":8081",
 	}
 
+	bblot, err := repository.NewBboltRepositpry()
+	if err != nil {
+		return
+	}
+
+	bblot.Write()
+
 	env := flag.String("env", "", "環境変数取得")
 	flag.Parse()
 
@@ -69,12 +76,11 @@ func main() {
 
 	timeoutCtx, timeoutCancel := context.WithTimeout(baseCtx, 5*time.Second)
 	defer timeoutCancel()
-	err := server.Shutdown(timeoutCtx)
+	err = server.Shutdown(timeoutCtx)
 	if err != nil {
 		log.Printf("fatal shutdown server. %s\n", err)
 		return
 	}
-
 	vespaRepository.Close()
 
 }
