@@ -17,16 +17,18 @@ func NewQueryBuilder(schema string, fields string) *QueryBuilder {
 	}
 }
 
-func (b *QueryBuilder) BuildQuery(condition *domain.SearchCondition) string {
+func (b *QueryBuilder) BuildQuery(condition *domain.SearchCondition, synonymKeyword *string) string {
 	andQuery := AndQuery{
 		whereQuery: []WhereQuery{
-			ConvertSpotNameQuery(condition),
+			ConvertSpotNameQuery(condition, synonymKeyword),
 			ConvertGeoQuery(condition),
 			ConvertCategoryQuery(condition),
 			ConvertHasInstagramImageQuery(condition),
 		},
 	}
 	whereQuery := andQuery.BuildQuery()
+
+	// NOTE:
 	// page:1, limit: 10の場合
 	// limit 10, offset 0
 

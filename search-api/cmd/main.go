@@ -47,7 +47,15 @@ func main() {
 		Timeout: 90 * time.Second,
 	}
 
-	vespaRepository := repository.NewVespaRepository(model.NewVespaClient(httpClient, vespaUrl))
+	bblot, err := repository.NewBboltRepositpry()
+	if err != nil {
+		return
+	}
+
+	vespaRepository := repository.NewVespaRepository(
+		model.NewVespaClient(httpClient, vespaUrl),
+		bblot,
+	)
 
 	handler := presentation.NewHandler(vespaRepository)
 
@@ -69,12 +77,11 @@ func main() {
 
 	timeoutCtx, timeoutCancel := context.WithTimeout(baseCtx, 5*time.Second)
 	defer timeoutCancel()
-	err := server.Shutdown(timeoutCtx)
+	err = server.Shutdown(timeoutCtx)
 	if err != nil {
 		log.Printf("fatal shutdown server. %s\n", err)
 		return
 	}
-
 	vespaRepository.Close()
 
 }
