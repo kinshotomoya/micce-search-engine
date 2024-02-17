@@ -18,8 +18,7 @@ $ curl -i https://{hoge}/api/v1/search -d '{"spot_name": "京都", "limit": 10, 
 ## インターフェース
 openapi.ymlを参照
 
-## TODO: シノニム辞書
-シノニム辞書をmmapで読み込んでクエリ発行時にOR検索させるようにする
+## シノニム辞書
+`~/micce-search-engine/synonym-data-generator`でsynonym.dbを作成しクエリ構築時にユーザーリクエストをシノニム展開している
 
-## 今後
-- internalなAPIなのでgRPCにしたい
+シノニム辞書の登録作成方法はsynonym-data-generator配下のREADME参照
