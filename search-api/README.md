@@ -22,3 +22,6 @@ openapi.ymlを参照
 `~/micce-search-engine/synonym-data-generator`でsynonym.dbを作成しクエリ構築時にユーザーリクエストをシノニム展開している
 
 シノニム辞書の登録作成方法はsynonym-data-generator配下のREADME参照
+
+組み込みkey value storeとして以下を利用
+https://github.com/etcd-io/bbolt
