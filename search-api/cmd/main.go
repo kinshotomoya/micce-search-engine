@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"search-api/internal/domain"
 	"search-api/internal/presentation"
 	"search-api/internal/repository"
 	"search-api/internal/repository/model"
@@ -21,8 +20,6 @@ func main() {
 	server := &http.Server{
 		Addr: ":8081",
 	}
-
-	domain.NewCustomMMap()
 
 	env := flag.String("env", "", "環境変数取得")
 	flag.Parse()
