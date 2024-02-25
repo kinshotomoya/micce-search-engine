@@ -3,7 +3,6 @@ package model
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net/http"
 )
@@ -37,7 +36,7 @@ func (v *VespaClient) Do(request *VespaRequest) (*VespaResponse, error) {
 	req.Header.Add("Content-Type", "application/json")
 	res, err := v.httpClient.Do(req)
 	if err != nil {
-		fmt.Println(err.Error())
+		slog.Error(err.Error())
 		return nil, err
 	}
 
