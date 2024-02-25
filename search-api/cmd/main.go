@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"github.com/joho/godotenv"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -27,7 +28,7 @@ func main() {
 	if *env == "dev" {
 		envErr := godotenv.Load()
 		if envErr != nil {
-			log.Fatal("error loading .env file")
+			panic("error loading .env file")
 		}
 	}
 
@@ -49,6 +50,7 @@ func main() {
 
 	bblot, err := repository.NewBboltRepositpry()
 	if err != nil {
+		slog.Error(err.Error())
 		return
 	}
 
@@ -67,19 +69,20 @@ func main() {
 	defer cancel()
 
 	go func() {
-		log.Println("server is running")
+		slog.Info("server is running")
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("server is not running. %s", err)
+			panic(fmt.Sprintf("server is not running. %s", err))
 		}
 	}()
 
 	<-signalCtx.Done()
+	slog.Info("signal received")
 
 	timeoutCtx, timeoutCancel := context.WithTimeout(baseCtx, 5*time.Second)
 	defer timeoutCancel()
 	err = server.Shutdown(timeoutCtx)
 	if err != nil {
-		log.Printf("fatal shutdown server. %s\n", err)
+		slog.Info("fatal shutdown server. %s\n", err)
 		return
 	}
 	vespaRepository.Close()

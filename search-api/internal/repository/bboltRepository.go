@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"fmt"
 	"go.etcd.io/bbolt"
 	"os"
 	"syscall"
@@ -61,7 +60,5 @@ func (r *BboltRepository) GetValue(key []byte) []byte {
 		value = bucket.Get(key)
 		return nil
 	})
-
-	fmt.Println(string(value))
 	return value
 }

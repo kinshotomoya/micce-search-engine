@@ -53,11 +53,13 @@ func responseError(w http.ResponseWriter, status int, err error) {
 		var buf bytes.Buffer
 		errRes := model.Error400(err)
 		json.NewEncoder(&buf).Encode(errRes)
+		w.WriteHeader(400)
 		w.Write(buf.Bytes())
 	default:
 		var buf bytes.Buffer
 		errRes := model.Error500(err)
 		json.NewEncoder(&buf).Encode(errRes)
+		w.WriteHeader(500)
 		w.Write(buf.Bytes())
 	}
 

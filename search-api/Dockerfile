@@ -25,12 +25,13 @@ RUN apt update && apt install -y ca-certificates
 
 RUN groupadd -r search-api && useradd -r -g search-api search-api
 
-USER search-api
-
 WORKDIR /bin
 
 COPY --from=builder /app/bin/search-api ./
-
+COPY synonym.db synonym.db
+# その他ユーザーに対してread writeの権限をつける
+RUN chmod 606 synonym.db
 EXPOSE 8081
 
+USER search-api
 CMD [ "/bin/search-api" ]
