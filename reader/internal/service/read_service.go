@@ -100,11 +100,8 @@ func (r *ReadService) runLoop(partitionClient *azeventhubs.ProcessorPartitionCli
 
 	// NOTE: errorならprocessEventsForPartition関数から抜ける
 	if err != nil || errors.Is(err, context.DeadlineExceeded) {
-		var eventhubError *azeventhubs.Error
-		if errors.As(err, &eventhubError) && eventhubError.Code == azeventhubs.ErrorCodeOwnershipLost {
-			internal.Logger.Error(fmt.Sprintf("event timeout error: %s", err.Error()))
-			return err
-		}
+		internal.Logger.Error(fmt.Sprintf("error occured when getting events: %s", err.Error()))
+		return err
 	}
 
 	if len(events) == 0 {

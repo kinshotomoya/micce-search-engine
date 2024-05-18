@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+const GetLimitSize = 20
+
 type ReadService struct {
 	EventHubConsumerProcessor *azure2.EventHubConsumerProcessor
 	VespaClient               *vespa.VespaClient
@@ -81,19 +83,16 @@ parentLoop:
 func (r *ReadService) runLoop(partitionClient *azeventhubs.ProcessorPartitionClient) error {
 	mainCtx, mainCancel := context.WithTimeout(context.Background(), 12*time.Second)
 	defer mainCancel()
-	// NOTE: 最大100件取得完了する、3秒経過するまで待ち受ける
+	// NOTE: 最大20件取得完了する、3秒経過するまで待ち受ける
 	// 5秒経過した場合、3秒間で取得できたeventを返す
 	receiveCtx, receiveCtxCancel := context.WithTimeout(mainCtx, 3*time.Second)
 	defer receiveCtxCancel()
-	events, err := partitionClient.ReceiveEvents(receiveCtx, 100, nil)
+	events, err := partitionClient.ReceiveEvents(receiveCtx, GetLimitSize, nil)
 
 	// NOTE: errorならprocessEventsForPartition関数から抜ける
 	if err != nil || errors.Is(err, context.DeadlineExceeded) {
-		var eventhubError *azeventhubs.Error
-		if errors.As(err, &eventhubError) && eventhubError.Code == azeventhubs.ErrorCodeOwnershipLost {
-			internal.Logger.Error(fmt.Sprintf("event timeout error: %s", err.Error()))
-			return err
-		}
+		internal.Logger.Error(fmt.Sprintf("error occured when getting events: %s", err.Error()))
+		return err
 	}
 
 	if len(events) == 0 {
@@ -141,7 +140,6 @@ func (r *ReadService) runLoop(partitionClient *azeventhubs.ProcessorPartitionCli
 func decodeEvent(events []*azeventhubs.ReceivedEventData) ([]vespa.Document, error) {
 	preEventDataArray := make([]vespa.Document, len(events))
 	for i := range events {
-		internal.Logger.Info(string(events[i].Body))
 		var buf bytes.Buffer
 		buf.Write(events[i].Body)
 		var document vespa.Document
