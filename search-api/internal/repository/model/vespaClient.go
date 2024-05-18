@@ -3,6 +3,8 @@ package model
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 )
@@ -29,9 +31,6 @@ func (v *VespaClient) Do(request *VespaRequest) (*VespaResponse, error) {
 		return nil, err
 	}
 
-	// TODO: ログレベル設定
-	slog.Info("yql: " + request.Yql)
-
 	req, _ := http.NewRequest("POST", v.vespaConfig.Url+"/search/", &buf)
 	req.Header.Add("Content-Type", "application/json")
 	res, err := v.httpClient.Do(req)
@@ -40,9 +39,18 @@ func (v *VespaClient) Do(request *VespaRequest) (*VespaResponse, error) {
 		return nil, err
 	}
 
+	// log for confirmation
+	var debugBuf bytes.Buffer
+	debugReader := io.TeeReader(res.Body, &debugBuf)
+	all, err := io.ReadAll(debugReader)
+	if err != nil {
+		return nil, err
+	}
+	slog.Info(fmt.Sprintf("yql: %s. vespaResponse: %s", request.Yql, string(all)))
+
 	defer res.Body.Close()
 	var vespaResponse VespaResponse
-	err = json.NewDecoder(res.Body).Decode(&vespaResponse)
+	err = json.NewDecoder(&debugBuf).Decode(&vespaResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -51,5 +59,4 @@ func (v *VespaClient) Do(request *VespaRequest) (*VespaResponse, error) {
 
 func (v *VespaClient) Close() {
 	v.httpClient.CloseIdleConnections()
-
 }

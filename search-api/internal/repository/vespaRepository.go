@@ -32,6 +32,7 @@ func (v *VespaRepository) Search(searchCondition *domain.SearchCondition) (*mode
 	yql := builder.BuildQuery(searchCondition, synonymKeyword)
 	request := model.NewVespaRequest(yql, "spot")
 	res, err := v.vespaClient.Do(request)
+
 	if err != nil {
 		return nil, err
 	}
