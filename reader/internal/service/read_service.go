@@ -99,6 +99,8 @@ func (r *ReadService) runLoop(partitionClient *azeventhubs.ProcessorPartitionCli
 	events, err := partitionClient.ReceiveEvents(receiveCtx, GetLimitSize, nil)
 
 	// NOTE: errorならprocessEventsForPartition関数から抜ける
+	// eventsが0件で取得できない場合でもDeadlineExceededになる
+	// その場合でもclientを一回切ってあげる
 	if err != nil || errors.Is(err, context.DeadlineExceeded) {
 		internal.Logger.Error(fmt.Sprintf("error occured when getting events: %s", err.Error()))
 		return err
