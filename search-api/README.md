@@ -3,7 +3,7 @@ search-engineに検索をかける前段のAPI
 
 ## ローカル環境での動かし方
 ```shell
-$ go run cmd/main.go -e nv dev
+$ go run cmd/main.go -env dev
 ```
 
 ## 本番環境へのリクエスト方法
